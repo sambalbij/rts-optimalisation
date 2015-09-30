@@ -26,3 +26,12 @@
 *.exe
 *.out
 *.app
+
+*.sdf
+*.opensdf
+*.suo
+*.vcxproj.user
+*.pdb
+Debug/
+Release/
+ipch/

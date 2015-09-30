@@ -236,6 +236,8 @@ void Game::Init()
 
 	game = this; // for global reference
 	m_LButton = m_PrevButton = false;
+
+	last = std::clock();
 }
 
 // Game::DrawTanks - draw the tanks
@@ -312,7 +314,14 @@ void Game::Tick( float a_DT )
 	DrawTanks();
 	PlayerInput();
 
+	std::clock_t now = std::clock();
+	float dt = (now - last) / (float)CLOCKS_PER_SEC;
+	last = now;
+
 	char buffer[128];
+	sprintf(buffer, "%04i fps", (int)(1.0f / dt));
+	m_Surface->Print(buffer, 965, 10, 0xffff00);
+
 	if ((aliveP1 > 0) && (aliveP2 > 0))
 	{
 		sprintf( buffer, "blue army: %03i  red army: %03i", aliveP1, aliveP2 );

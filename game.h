@@ -1,3 +1,5 @@
+#include <ctime>
+
 #ifndef I_GAME_H
 #define I_GAME_H
 
@@ -63,6 +65,7 @@ public:
 	int m_MouseX, m_MouseY, m_DStartX, m_DStartY, m_DFrames;
 	bool m_LButton, m_PrevButton;
 	Tank** m_Tank;
+	std::clock_t last;
 };
 
 }; // namespace Templ8

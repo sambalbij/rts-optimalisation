@@ -66,25 +66,39 @@ void Bullet::Tick()
 		end = MAXP1 + MAXP2;
 	}
 
-	for ( unsigned int i = start; i < end; i++ ) // check all opponents
-	{
-		Tank* t = game->m_Tank[i];
-		if (!((t->flags & Tank::ACTIVE) &&
-			(pos.x > (t->pos.x - 2)) &&
-			(pos.y > (t->pos.y - 2)) &&
-			(pos.x < (t->pos.x + 2)) &&
-			(pos.y < (t->pos.y + 2))))
-			continue;
+	//for ( unsigned int i = start; i < end; i++ ) // check all opponents
+	//{
+	//	Tank* t = game->m_Tank[i];
+	//	if (!((t->flags & Tank::ACTIVE) &&
+	//		(pos.x > (t->pos.x - 2)) &&
+	//		(pos.y > (t->pos.y - 2)) &&
+	//		(pos.x < (t->pos.x + 2)) &&
+	//		(pos.y < (t->pos.y + 2))))
+	//		continue;
 
-		if (t->flags & Tank::P1)
-			aliveP1--;
-		else
-			aliveP2--; // update counters
+	//	if (t->flags & Tank::P1)
+	//		aliveP1--;
+	//	else
+	//		aliveP2--; // update counters
 
-		t->flags &= Tank::P1 | Tank::P2; // kill tank
-		flags = 0;						 // destroy bullet
-		break;
-	}
+	//	t->flags &= Tank::P1 | Tank::P2; // kill tank
+	//	flags = 0;						 // destroy bullet
+	//	break;
+	//}
+
+	Grid& grid = flags & P1 ? game->gridP2 : game->gridP1;
+	Tank* tank = grid.ActiveTankWithinRange(pos, 2);
+
+	if (tank == nullptr)
+		return;
+
+	if (tank->flags & Tank::P1)
+		aliveP1--;
+	else
+		aliveP2--;
+
+	tank->flags &= Tank::P1 | Tank::P2;
+	flags = 0;
 }
 
 // Tank::Fire - spawns a bullet
@@ -162,6 +176,8 @@ void Tank::Tick()
 	speed = normalize(speed);
 	pos += speed * maxspeed * 0.5f;
 
+	UpdateGrid();
+
 	// shoot, if reloading completed
 	if (--reloading >= 0)
 		return;
@@ -185,9 +201,45 @@ void Tank::Tick()
 	}
 }
 
+void Tank::UpdateGrid()
+{
+	Grid& grid = flags & P1 ? game->gridP1 : game->gridP2;
+	Tank* cell = grid.cells[gridCell.first][gridCell.second]; // old cell
+
+	// remove from old cell
+	if (prev != nullptr)
+		prev->next = next;
+	if (next != nullptr)
+		next->prev = prev;
+
+	// update grid if necessary
+	if (cell == this)
+		grid.cells[gridCell.first][gridCell.second] = next;
+
+	prev = next = nullptr;
+
+	// add to new cell
+	gridCell = grid.GetIndices(pos);
+	cell = grid.cells[gridCell.first][gridCell.second]; // new cell
+
+	// empty cell
+	if (cell == nullptr)
+	{
+		grid.cells[gridCell.first][gridCell.second] = this;
+		return;
+	}
+
+	// insert at front
+	next = cell;
+	cell->prev = this;
+	grid.cells[gridCell.first][gridCell.second] = this;
+}
+
 // Game::Init - Load data, setup playfield
 void Game::Init()
 {
+	game = this; // for global reference
+
 	m_Heights = new Surface("testdata/heightmap.png");
 	m_Backdrop = new Surface(1024, 768);
 	m_Grid = new Surface(1024, 768);
@@ -223,6 +275,8 @@ void Game::Init()
 		t->pos = vec2( (float)((i % 5) * 20), (float)((i / 5) * 20 + 50) );
 		t->target = vec2( SCRWIDTH, SCRHEIGHT ); // initially move to bottom right corner
 		t->speed = vec2( 0, 0 ), t->flags = Tank::ACTIVE | Tank::P1, t->maxspeed = (i < (MAXP1 / 2)) ? 0.65f : 0.45f;
+
+		t->UpdateGrid();
 	}
 
 	// create red tanks
@@ -232,9 +286,10 @@ void Game::Init()
 		t->pos = vec2( (float)((i % 12) * 20 + 900), (float)((i / 12) * 20 + 600) );
 		t->target = vec2( 424, 336 ); // move to player base
 		t->speed = vec2( 0, 0 ), t->flags = Tank::ACTIVE | Tank::P2, t->maxspeed = 0.3f;
+
+		t->UpdateGrid();
 	}
 
-	game = this; // for global reference
 	m_LButton = m_PrevButton = false;
 
 	last = std::clock();
@@ -319,7 +374,7 @@ void Game::Tick( float a_DT )
 	last = now;
 
 	char buffer[128];
-	sprintf(buffer, "%04i fps", (int)(1.0f / dt));
+	sprintf(buffer, "%02i fps", (int)(1.0f / dt));
 	m_Surface->Print(buffer, 965, 10, 0xffff00);
 
 	if ((aliveP1 > 0) && (aliveP2 > 0))

@@ -1,5 +1,4 @@
 #include <ctime>
-#include <list>
 
 #ifndef I_GAME_H
 #define I_GAME_H
@@ -68,12 +67,46 @@ public:
 		return std::pair<int, int>((int)(pos.x / GRID_CELL_SIZE), (int)(pos.y / GRID_CELL_SIZE));
 	}
 
+	// returns (tank, force) for each tank within range
+	std::vector<std::pair<Tank*, vec2>> TanksWithinInfluence(Tank* tank)
+	{
+		std::vector<std::pair<Tank*, vec2>> result;
+
+		int x = tank->gridCell.first, y = tank->gridCell.second; // our tank's cell
+		for (int j = MAX(0, y - 1); j < MIN(GRID_WIDTH, y + 1); j++) // look in neighbouring cells as well
+			for (int i = MAX(0, x - 1); i < MIN(GRID_WIDTH, x + 1); i++)
+			{
+				Tank* current = cells[i][j];
+				while (current != nullptr) // loop over all tanks in cell
+				{
+					if (current == tank) // we don't want our tank
+					{
+						current = current->next;
+						continue;
+					}
+
+					vec2 d = tank->pos - current->pos; // distance
+					float length2 = d.x * d.x + d.y * d.y; // squared length
+					if (length2 < 256) // 16 * 16
+					{
+						float mul = length2 < 64 ? 2.0f : 0.4f;				// force factor based on distance
+						result.emplace_back(current,						// the tank
+											d * (mul / sqrtf(length2)));	// the force vector
+					}
+
+					current = current->next;
+				}
+			}
+
+		return result;
+	}
+
 	Tank* ActiveTankWithinRange(vec2 pos, float r) // assumes r < GRID_CELL_SIZE
 	{
 		std::pair<int, int> indices = GetIndices(pos);
 		Tank* tank = cells[indices.first][indices.second];
 
-		while (tank != nullptr)
+		while (tank != nullptr) // check own cell first
 		{
 			if (tank->flags & Tank::ACTIVE &&
 				pos.x > tank->pos.x - r &&
@@ -85,16 +118,35 @@ public:
 			tank = tank->next;
 		}
 
-		// TODO: boundary cases
-		if (fmod(pos.x, GRID_CELL_SIZE) < r)
-			;
-		else if (fmod(pos.x, GRID_CELL_SIZE) > GRID_CELL_SIZE - r)
-			;
-		if (fmod(pos.y, GRID_CELL_SIZE) < r)
-			;
-		else if (fmod(pos.y, GRID_CELL_SIZE) > GRID_CELL_SIZE - r)
-			;
+		for (int j = -1; j <= 1; j++) // look in neighbouring cells as well
+		{
+			int y = indices.second + j;
+			if (y < 0 || y >= GRID_HEIGHT)
+				continue;
 
+			for (int i = -1; i <= 1; i++)
+			{
+				int x = indices.first + i;
+				if (x < 0 || x >= GRID_WIDTH)
+					continue;
+
+				if (i == 0 && j == 0)
+					continue;
+
+				tank = cells[x][y];
+				while (tank != nullptr)
+				{
+					if (tank->flags & Tank::ACTIVE &&
+						pos.x > tank->pos.x - r &&
+						pos.y > tank->pos.y - r &&
+						pos.x < tank->pos.x + r &&
+						pos.y < tank->pos.y + r)
+						return tank;
+
+					tank = tank->next;
+				}
+			}
+		}
 		return nullptr;
 	}
 };

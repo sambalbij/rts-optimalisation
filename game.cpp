@@ -142,18 +142,27 @@ void Tank::Tick()
 		}
 	}
 
-	// evade other tanks
-	for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
-	{
-		if (game->m_Tank[i] == this)
-			continue;
+	// evade P1 tanks
+	std::vector<std::pair<Tank*, vec2>> p1Tanks = game->gridP1.TanksWithinInfluence(this);
+	for (const auto& tup : p1Tanks)
+		force += std::get<1>(tup);
 
-		vec2 d = pos - game->m_Tank[i]->pos;
-		if (length( d ) < 8)
-			force += normalize( d ) * 2.0f;
-		else if (length( d ) < 16)
-			force += normalize( d ) * 0.4f;
-	}
+	// evade P2 tanks
+	std::vector<std::pair<Tank*, vec2>> p2Tanks = game->gridP2.TanksWithinInfluence(this);
+	for (const auto& tup : p2Tanks)
+		force += std::get<1>(tup);
+
+	//for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
+	//{
+	//	if (game->m_Tank[i] == this)
+	//		continue;
+
+	//	vec2 d = pos - game->m_Tank[i]->pos;
+	//	if (length( d ) < 8)
+	//		force += normalize( d ) * 2.0f;
+	//	else if (length( d ) < 16)
+	//		force += normalize( d ) * 0.4f;
+	//}
 
 	// evade user dragged line
 	if ((flags & P1) && (game->m_LButton))

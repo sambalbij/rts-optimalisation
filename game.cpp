@@ -102,6 +102,7 @@ void Tank::Fire( unsigned int party, vec2& pos, vec2& dir )
 // Tank::Tick - update single tank
 void Tank::Tick()
 {
+	
 	if (!(flags & ACTIVE)) // dead tank
 	{
 		smoke.xpos = (int)pos.x;
@@ -128,18 +129,29 @@ void Tank::Tick()
 		}
 	}
 
+	// determine gridcell of tank
+	int xindex = pos.x * 0.0625f; // x/16
+	int yindex = pos.y * 0.0625f; // x/16
 	// evade other tanks
-	for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
-	{
-		if (game->m_Tank[i] == this)
+	//for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
+	for (int dx = -1; dx < 2; ++dx)
+		for (int dy = -1; dy < 2; ++dy)
+		{
+		int x = xindex + dx, y = yindex + dy;
+		if (x < 0 || x>255 || y < 0 || y>255 || game->grid[x][y].empty())
 			continue;
+		for (Tank* t : game->grid[x][y])
+		{
+			if (t == this) //game->m_Tank[i] == this)
+				continue;
 
-		vec2 d = pos - game->m_Tank[i]->pos;
-		if (length( d ) < 8)
-			force += normalize( d ) * 2.0f;
-		else if (length( d ) < 16)
-			force += normalize( d ) * 0.4f;
-	}
+			vec2 d = pos - t->pos; //game->m_Tank[i]->pos;
+			if (length(d) < 8)
+				force += normalize(d) * 2.0f;
+			else if (length(d) < 16)
+				force += normalize(d) * 0.4f;
+		}
+		}
 
 	// evade user dragged line
 	if ((flags & P1) && (game->m_LButton))
@@ -188,6 +200,12 @@ void Tank::Tick()
 // Game::Init - Load data, setup playfield
 void Game::Init()
 {
+	// grid
+	for (int i = 0; i < 256; ++i)
+		for (int j = 0; j < 256; ++j)
+			grid[i][j].clear();
+
+
 	m_Heights = new Surface("testdata/heightmap.png");
 	m_Backdrop = new Surface(1024, 768);
 	m_Grid = new Surface(1024, 768);
@@ -304,6 +322,18 @@ void Game::Tick( float a_DT )
 	ScreenToClient( FindWindow( NULL, "Template" ), &p );
 	m_LButton = (GetAsyncKeyState( VK_LBUTTON ) != 0), m_MouseX = p.x, m_MouseY = p.y;
 	m_Backdrop->CopyTo( m_Surface, 0, 0 );
+
+	// clear grid
+	for (int i = 0; i < 256; ++i)
+		for (int j = 0; j < 256; ++j)
+			grid[i][j].clear();
+	// put tanks in grid
+	for (unsigned int i = 0; i < (MAXP1 + MAXP2); i++)
+	{
+		int xindex = m_Tank[i]->pos.x * 0.0625f; // x/16
+		int yindex = m_Tank[i]->pos.y * 0.0625f; // x/16
+		grid[xindex][yindex].push_back(m_Tank[i]);
+	}
 
 	for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
 		m_Tank[i]->Tick();

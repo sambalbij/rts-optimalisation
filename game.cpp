@@ -191,23 +191,35 @@ void Tank::Tick()
 	if (--reloading >= 0)
 		return;
 
-	unsigned int start = 0, end = MAXP1;
+	Tank* target;
 	if (flags & P1)
-	{
-		start = MAXP1;
-		end = MAXP1 + MAXP2;
-	}
+		target = game->gridP2.ActiveTankWithinRangeAndDirection(pos, 100, speed);
+	else
+		target = game->gridP1.ActiveTankWithinRangeAndDirection(pos, 100, speed);
 
-	for ( unsigned int i = start; i < end; i++ ) if (game->m_Tank[i]->flags & ACTIVE)
-	{
-		vec2 d = game->m_Tank[i]->pos - pos;
-		if ((length( d ) < 100) && (dot( normalize( d ), speed ) > 0.99999f))
-		{
-			Fire( flags & (P1|P2), pos, speed ); // shoot
-			reloading = 200; // and wait before next shot is ready
-			break;
-		}
-	}
+	if (target == nullptr)
+		return;
+
+	Fire(flags & (P1 | P2), pos, speed); // shoot
+	reloading = 200; // and wait before next shot is ready
+
+	//unsigned int start = 0, end = MAXP1;
+	//if (flags & P1)
+	//{
+	//	start = MAXP1;
+	//	end = MAXP1 + MAXP2;
+	//}
+
+	//for ( unsigned int i = start; i < end; i++ ) if (game->m_Tank[i]->flags & ACTIVE)
+	//{
+	//	vec2 d = game->m_Tank[i]->pos - pos;
+	//	if ((length( d ) < 100) && (dot( normalize( d ), speed ) > 0.99999f))
+	//	{
+	//		Fire( flags & (P1|P2), pos, speed ); // shoot
+	//		reloading = 200; // and wait before next shot is ready
+	//		break;
+	//	}
+	//}
 }
 
 void Tank::UpdateGrid()

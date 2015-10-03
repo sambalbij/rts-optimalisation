@@ -5,11 +5,11 @@
 
 namespace Tmpl8 {
 
-#define MAXP1			80			// increase to test your optimized code
+#define MAXP1			8000			// increase to test your optimized code
 #define MAXP2			(4 * MAXP1)	// because the player is smarter than the AI
 #define MAXBULLET		200
-#define GRID_WIDTH		100			// the number of cells
-#define GRID_HEIGHT		100
+#define GRID_WIDTH		5000			// the number of cells
+#define GRID_HEIGHT		5000
 #define GRID_CELL_SIZE	16			// the size of each cell, in pixels
 
 class Smoke
@@ -147,6 +147,46 @@ public:
 				}
 			}
 		}
+		return nullptr;
+	}
+
+	Tank* ActiveTankWithinRangeAndDirection(vec2 pos, float r, vec2 dir)
+	{
+		float r2 = r * r;
+		std::pair<int, int> indices = GetIndices(pos);
+
+		const int n = 7; // ceil(100 / GRID_CELL_SIZE)
+		int minX = MAX(0, MIN(indices.first, indices.first + (dir.x < 0 ? -n : n))); // smallest x of cell to check
+		int maxX = MIN(GRID_WIDTH - 1, MAX(indices.first, indices.first + (dir.x < 0 ? -n : n))); // largest x
+		int minY = MAX(0, MIN(indices.second, indices.second + (dir.y < 0 ? -n : n)));
+		int maxY = MIN(GRID_HEIGHT - 1, MAX(indices.second, indices.second + (dir.y < 0 ? -n : n)));
+
+		for (int y = minY; y <= maxY; y++)
+			for (int x = minX; x <= maxX; x++)
+			{
+				Tank* tank = cells[x][y];
+				while (tank != nullptr) // all tanks in cell
+				{
+					if (tank->flags & Tank::ACTIVE) // only active tanks
+					{
+						vec2 diff = tank->pos - pos;
+						float dist2 = dot(diff, diff);
+						if (dist2 < r2) // squared distance check
+						{
+							float dist = sqrtf(dist2);
+							if (dist < r) // distance check
+							{
+								diff /= dist;
+								if (dot(diff, dir) > 0.99999f) // direction check
+									return tank; // all conditions met!
+							}
+						}
+					}
+
+					tank = tank->next;
+				}
+			}
+
 		return nullptr;
 	}
 };

@@ -278,7 +278,7 @@ void Tank::UpdateGrid()
 	prev[i] = next[i] = nullptr;
 
 	// add to new cell
-	gridCell[i] = grid.GetIndices(pos);
+	gridCell[i] = grid.GetIndices(pos,i);
 	cell = grid.cells2[gridCell[i].first][gridCell[i].second]; // new cell
 
 	// empty cell

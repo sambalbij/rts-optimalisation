@@ -161,9 +161,9 @@ public:
 	Tank* ActiveTankWithinRangeAndDirection(vec2 pos, float r, vec2 dir)
 	{
 		float r2 = r * r;
-		std::pair<int, int> indices = GetIndices(pos);
+		std::pair<int, int> indices = GetIndices(pos,1);
 
-		const int n = 7; // ceil(100 / GRID_CELL_SIZE)
+		const int n = 1; // ceil(100 / GRID_CELL_SIZE)
 		int minX = MAX(0, MIN(indices.first, indices.first + (dir.x < 0 ? -n : n))); // smallest x of cell to check
 		int maxX = MIN(GRID_WIDTH - 1, MAX(indices.first, indices.first + (dir.x < 0 ? -n : n))); // largest x
 		int minY = MAX(0, MIN(indices.second, indices.second + (dir.y < 0 ? -n : n)));
@@ -172,7 +172,7 @@ public:
 		for (int y = minY; y <= maxY; y++)
 			for (int x = minX; x <= maxX; x++)
 			{
-				Tank* tank = cells[x][y];
+				Tank* tank = cells2[x][y];
 				while (tank != nullptr) // all tanks in cell
 				{
 					if (tank->flags & Tank::ACTIVE) // only active tanks
@@ -191,7 +191,7 @@ public:
 						}
 					}
 
-					tank = tank->next[0];
+					tank = tank->next[1];
 				}
 			}
 

@@ -5,12 +5,13 @@
 
 namespace Tmpl8 {
 
-#define MAXP1			20000			// increase to test your optimized code
+#define MAXP1			10			// increase to test your optimized code
 #define MAXP2			(4 * MAXP1)	// because the player is smarter than the AI
 #define MAXBULLET		200000
 #define GRID_WIDTH		5000			// the number of cells
 #define GRID_HEIGHT		5000
 #define GRID_CELL_SIZE	16			// the size of each cell, in pixels
+#define GRID_CELL_SIZE2	100	
 
 class Smoke
 {
@@ -27,7 +28,7 @@ class Tank
 {
 public:
 	enum { ACTIVE = 1, P1 = 2, P2 = 4 };
-	Tank() : pos( vec2( 0, 0 ) ), speed( vec2( 0, 0 ) ), target( vec2( 0, 0 ) ), reloading( 0 ), prev(nullptr), next(nullptr) {};
+	Tank() : pos(vec2(0, 0)), speed(vec2(0, 0)), target(vec2(0, 0)), reloading(0), prev(), next() {};
 	~Tank();
 	void Fire( unsigned int party, vec2& pos, vec2& dir );
 	void Tick();
@@ -36,8 +37,9 @@ public:
 	float maxspeed;
 	int flags, reloading;
 	Smoke smoke;
-	Tank* prev, *next;
-	std::pair<int, int> gridCell;
+	Tank* prev[2];
+	Tank* next[2];
+	std::pair<int, int> gridCell[2];
 };
 
 class Bullet
@@ -49,22 +51,29 @@ public:
 	vec2 pos, speed;
 	int flags;
 };
-
+const int GRID_CELL_SIZES[] = { 16, 100 };
 class Grid
 {
 public:
+	
 	Tank* cells[GRID_WIDTH][GRID_HEIGHT];
+	Tank* cells2[GRID_WIDTH/6][GRID_HEIGHT/6];
 
 	Grid()
 	{
 		for (int j = 0; j < GRID_HEIGHT; j++)
 			for (int i = 0; i < GRID_WIDTH; i++)
-				cells[i][j] = nullptr;
+				cells[i][j] = nullptr; 
+		
+		for (int j = 0; j < GRID_HEIGHT/6; j++)
+				for (int i = 0; i < GRID_WIDTH/6; i++)
+					cells2[i][j] = nullptr;
 	}
 
-	std::pair<int, int> GetIndices(vec2 pos) const
+	std::pair<int, int> GetIndices(vec2 pos, int i=0) const
 	{
-		return std::pair<int, int>((int)(pos.x / GRID_CELL_SIZE), (int)(pos.y / GRID_CELL_SIZE));
+		if (i ==0)
+			return std::pair<int, int>((int)(pos.x / GRID_CELL_SIZES[i]), (int)(pos.y / GRID_CELL_SIZES[i]));
 	}
 
 	// returns (tank, force) for each tank within range
@@ -72,7 +81,7 @@ public:
 	{
 		std::vector<std::pair<Tank*, vec2>> result;
 
-		int x = tank->gridCell.first, y = tank->gridCell.second; // our tank's cell
+		int x = tank->gridCell[0].first, y = tank->gridCell[0].second; // our tank's cell
 		for (int j = MAX(0, y - 1); j < MIN(GRID_WIDTH, y + 1); j++) // look in neighbouring cells as well
 			for (int i = MAX(0, x - 1); i < MIN(GRID_WIDTH, x + 1); i++)
 			{
@@ -81,7 +90,7 @@ public:
 				{
 					if (current == tank) // we don't want our tank
 					{
-						current = current->next;
+						current = current->next[0];
 						continue;
 					}
 
@@ -94,7 +103,7 @@ public:
 											d * (mul / sqrtf(length2)));	// the force vector
 					}
 
-					current = current->next;
+					current = current->next[0];
 				}
 			}
 
@@ -115,7 +124,7 @@ public:
 				pos.y < tank->pos.y + r)
 				return tank;
 
-			tank = tank->next;
+			tank = tank->next[0];
 		}
 
 		for (int j = -1; j <= 1; j++) // look in neighbouring cells as well
@@ -143,7 +152,7 @@ public:
 						pos.y < tank->pos.y + r)
 						return tank;
 
-					tank = tank->next;
+					tank = tank->next[0];
 				}
 			}
 		}
@@ -183,7 +192,7 @@ public:
 						}
 					}
 
-					tank = tank->next;
+					tank = tank->next[0];
 				}
 			}
 

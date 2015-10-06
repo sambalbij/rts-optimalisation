@@ -224,36 +224,76 @@ void Tank::Tick()
 
 void Tank::UpdateGrid()
 {
+	int i = 0;
+
 	Grid& grid = flags & P1 ? game->gridP1 : game->gridP2;
-	Tank* cell = grid.cells[gridCell.first][gridCell.second]; // old cell
+	Tank* cell = grid.cells[gridCell[i].first][gridCell[i].second]; // old cell
 
 	// remove from old cell
-	if (prev != nullptr)
-		prev->next = next;
-	if (next != nullptr)
-		next->prev = prev;
+	if (prev[i] != nullptr)
+		prev[i]->next[i] = next[i];
+	if (next[i] != nullptr)
+		next[i]->prev[i] = prev[i];
 
 	// update grid if necessary
 	if (cell == this)
-		grid.cells[gridCell.first][gridCell.second] = next;
+		grid.cells[gridCell[i].first][gridCell[i].second] = next[i];
 
-	prev = next = nullptr;
+	prev[i] = next[i] = nullptr;
 
 	// add to new cell
-	gridCell = grid.GetIndices(pos);
-	cell = grid.cells[gridCell.first][gridCell.second]; // new cell
+	gridCell[i] = grid.GetIndices(pos);
+	cell = grid.cells[gridCell[i].first][gridCell[i].second]; // new cell
 
 	// empty cell
 	if (cell == nullptr)
 	{
-		grid.cells[gridCell.first][gridCell.second] = this;
+		grid.cells[gridCell[i].first][gridCell[i].second] = this;
 		return;
 	}
 
 	// insert at front
-	next = cell;
-	cell->prev = this;
-	grid.cells[gridCell.first][gridCell.second] = this;
+
+	next[i] = cell;
+	cell->prev[i] = this;
+	grid.cells[gridCell[i].first][gridCell[i].second] = this;
+
+	
+	
+	// second grid
+	++i;
+	
+	 cell = grid.cells2[gridCell[i].first][gridCell[i].second]; // old cell
+
+	// remove from old cell
+	if (prev[i] != nullptr)
+		prev[i]->next[i] = next[i];
+	if (next[i] != nullptr)
+		next[i]->prev[i] = prev[i];
+
+	// update grid if necessary
+	if (cell == this)
+		grid.cells2[gridCell[i].first][gridCell[i].second] = next[i];
+
+	prev[i] = next[i] = nullptr;
+
+	// add to new cell
+	gridCell[i] = grid.GetIndices(pos);
+	cell = grid.cells2[gridCell[i].first][gridCell[i].second]; // new cell
+
+	// empty cell
+	if (cell == nullptr)
+	{
+		grid.cells2[gridCell[i].first][gridCell[i].second] = this;
+		return;
+	}
+
+	// insert at front
+	next[i] = cell;
+	cell->prev[i] = this;
+	grid.cells2[gridCell[i].first][gridCell[i].second] = this;
+
+	
 }
 
 // Game::Init - Load data, setup playfield

@@ -87,7 +87,7 @@ void Bullet::Tick()
 	//}
 
 	Grid& grid = flags & P1 ? game->gridP2 : game->gridP1;
-	Tank* tank = grid.ActiveTankWithinRange(pos, 2);
+	Tank* tank = grid.BulletCollision(pos);
 
 	if (tank == nullptr)
 		return;
@@ -143,14 +143,10 @@ void Tank::Tick()
 	}
 
 	// evade P1 tanks
-	std::vector<std::pair<Tank*, vec2>> p1Tanks = game->gridP1.TanksWithinInfluence(this);
-	for (const auto& tup : p1Tanks)
-		force += std::get<1>(tup);
+	force += game->gridP1.TankForces(this);
 
 	// evade P2 tanks
-	std::vector<std::pair<Tank*, vec2>> p2Tanks = game->gridP2.TanksWithinInfluence(this);
-	for (const auto& tup : p2Tanks)
-		force += std::get<1>(tup);
+	force += game->gridP2.TankForces(this);
 
 	//for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
 	//{
@@ -193,9 +189,9 @@ void Tank::Tick()
 
 	Tank* target;
 	if (flags & P1)
-		target = game->gridP2.ActiveTankWithinRangeAndDirection(pos, 100, speed);
+		target = game->gridP2.FindTarget(pos, speed);
 	else
-		target = game->gridP1.ActiveTankWithinRangeAndDirection(pos, 100, speed);
+		target = game->gridP1.FindTarget(pos, speed);
 
 	if (target == nullptr)
 		return;

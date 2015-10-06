@@ -5,10 +5,11 @@
 
 namespace Tmpl8 {
 
-#define MAXP1			20000			// increase to test your optimized code
+#define MAXP1			20			// increase to test your optimized code
 #define MAXP2			(4 * MAXP1)	// because the player is smarter than the AI
+#define TANKS			MAXP1+MAXP2
 #define MAXBULLET		200000
-#define GRID_WIDTH		5000			// the number of cells
+#define GRID_WIDTH		5000		// the number of cells
 #define GRID_HEIGHT		5000
 #define GRID_CELL_SIZE	16			// the size of each cell, in pixels
 
@@ -31,7 +32,7 @@ public:
 	~Tank();
 	void Fire( unsigned int party, vec2& pos, vec2& dir );
 	void Tick();
-	void UpdateGrid();
+//	void UpdateGrid();
 	vec2 pos, speed, target;
 	float maxspeed;
 	int flags, reloading;
@@ -53,13 +54,11 @@ public:
 class Grid
 {
 public:
-	Tank* cells[GRID_WIDTH][GRID_HEIGHT];
+	std::vector<Tank*> tanks[GRID_WIDTH][GRID_HEIGHT];
 
 	Grid()
 	{
-		for (int j = 0; j < GRID_HEIGHT; j++)
-			for (int i = 0; i < GRID_WIDTH; i++)
-				cells[i][j] = nullptr;
+		
 	}
 
 	std::pair<int, int> GetIndices(vec2 pos) const
@@ -72,18 +71,16 @@ public:
 	{
 		std::vector<std::pair<Tank*, vec2>> result;
 
-		int x = tank->gridCell.first, y = tank->gridCell.second; // our tank's cell
-		for (int j = MAX(0, y - 1); j < MIN(GRID_WIDTH, y + 1); j++) // look in neighbouring cells as well
-			for (int i = MAX(0, x - 1); i < MIN(GRID_WIDTH, x + 1); i++)
+		std::pair<int, int> indices = GetIndices(tank->pos);
+		
+		for (int j = MAX(0, indices.second - 1); j < MIN(GRID_HEIGHT, indices.second + 1); j++)
+		{
+			for (int i = MAX(0, indices.first - 1); i < MIN(GRID_WIDTH, indices.first + 1); i++)
 			{
-				Tank* current = cells[i][j];
-				while (current != nullptr) // loop over all tanks in cell
+				for (Tank* current : tanks[i][j])
 				{
 					if (current == tank) // we don't want our tank
-					{
-						current = current->next;
 						continue;
-					}
 
 					vec2 d = tank->pos - current->pos; // distance
 					float length2 = d.x * d.x + d.y * d.y; // squared length
@@ -91,22 +88,18 @@ public:
 					{
 						float mul = length2 < 64 ? 2.0f : 0.4f;				// force factor based on distance
 						result.emplace_back(current,						// the tank
-											d * (mul / sqrtf(length2)));	// the force vector
+							d * (mul / sqrtf(length2)));	// the force vector
 					}
-
-					current = current->next;
 				}
 			}
-
+		}
 		return result;
 	}
 
 	Tank* ActiveTankWithinRange(vec2 pos, float r) // assumes r < GRID_CELL_SIZE
 	{
 		std::pair<int, int> indices = GetIndices(pos);
-		Tank* tank = cells[indices.first][indices.second];
-
-		while (tank != nullptr) // check own cell first
+		for (Tank* tank : tanks[indices.first][indices.second]) // check own cell first
 		{
 			if (tank->flags & Tank::ACTIVE &&
 				pos.x > tank->pos.x - r &&
@@ -114,8 +107,6 @@ public:
 				pos.x < tank->pos.x + r &&
 				pos.y < tank->pos.y + r)
 				return tank;
-
-			tank = tank->next;
 		}
 
 		for (int j = -1; j <= 1; j++) // look in neighbouring cells as well
@@ -133,8 +124,7 @@ public:
 				if (i == 0 && j == 0)
 					continue;
 
-				tank = cells[x][y];
-				while (tank != nullptr)
+				for (Tank* tank : tanks[x][y])
 				{
 					if (tank->flags & Tank::ACTIVE &&
 						pos.x > tank->pos.x - r &&
@@ -142,8 +132,6 @@ public:
 						pos.x < tank->pos.x + r &&
 						pos.y < tank->pos.y + r)
 						return tank;
-
-					tank = tank->next;
 				}
 			}
 		}
@@ -164,8 +152,7 @@ public:
 		for (int y = minY; y <= maxY; y++)
 			for (int x = minX; x <= maxX; x++)
 			{
-				Tank* tank = cells[x][y];
-				while (tank != nullptr) // all tanks in cell
+			for (Tank* tank : tanks[x][y])
 				{
 					if (tank->flags & Tank::ACTIVE) // only active tanks
 					{
@@ -182,8 +169,6 @@ public:
 							}
 						}
 					}
-
-					tank = tank->next;
 				}
 			}
 
@@ -206,6 +191,7 @@ public:
 	void DrawTanks();
 	void PlayerInput();
 	void Tick( float a_DT );
+	void RefreshVectorGrid();
 	Surface* m_Surface, *m_Backdrop, *m_Heights, *m_Grid;
 	Sprite* m_P1Sprite, *m_P2Sprite, *m_PXSprite, *m_Smoke;
 	int m_ActiveP1, m_ActiveP2;

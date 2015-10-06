@@ -152,17 +152,6 @@ void Tank::Tick()
 	for (const auto& tup : p2Tanks)
 		force += std::get<1>(tup);
 
-	//for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
-	//{
-	//	if (game->m_Tank[i] == this)
-	//		continue;
-
-	//	vec2 d = pos - game->m_Tank[i]->pos;
-	//	if (length( d ) < 8)
-	//		force += normalize( d ) * 2.0f;
-	//	else if (length( d ) < 16)
-	//		force += normalize( d ) * 0.4f;
-	//}
 
 	// evade user dragged line
 	if ((flags & P1) && (game->m_LButton))
@@ -185,8 +174,6 @@ void Tank::Tick()
 	speed = normalize(speed);
 	pos += speed * maxspeed * 0.5f;
 
-	UpdateGrid();
-
 	// shoot, if reloading completed
 	if (--reloading >= 0)
 		return;
@@ -203,57 +190,9 @@ void Tank::Tick()
 	Fire(flags & (P1 | P2), pos, speed); // shoot
 	reloading = 200; // and wait before next shot is ready
 
-	//unsigned int start = 0, end = MAXP1;
-	//if (flags & P1)
-	//{
-	//	start = MAXP1;
-	//	end = MAXP1 + MAXP2;
-	//}
-
-	//for ( unsigned int i = start; i < end; i++ ) if (game->m_Tank[i]->flags & ACTIVE)
-	//{
-	//	vec2 d = game->m_Tank[i]->pos - pos;
-	//	if ((length( d ) < 100) && (dot( normalize( d ), speed ) > 0.99999f))
-	//	{
-	//		Fire( flags & (P1|P2), pos, speed ); // shoot
-	//		reloading = 200; // and wait before next shot is ready
-	//		break;
-	//	}
-	//}
-}
-
-void Tank::UpdateGrid()
-{
-	Grid& grid = flags & P1 ? game->gridP1 : game->gridP2;
-	Tank* cell = grid.cells[gridCell.first][gridCell.second]; // old cell
-
-	// remove from old cell
-	if (prev != nullptr)
-		prev->next = next;
-	if (next != nullptr)
-		next->prev = prev;
-
-	// update grid if necessary
-	if (cell == this)
-		grid.cells[gridCell.first][gridCell.second] = next;
-
-	prev = next = nullptr;
-
-	// add to new cell
-	gridCell = grid.GetIndices(pos);
-	cell = grid.cells[gridCell.first][gridCell.second]; // new cell
-
-	// empty cell
-	if (cell == nullptr)
-	{
-		grid.cells[gridCell.first][gridCell.second] = this;
-		return;
-	}
-
-	// insert at front
-	next = cell;
-	cell->prev = this;
-	grid.cells[gridCell.first][gridCell.second] = this;
+	//update vectorgrid
+	game->RefreshVectorGrid();
+	
 }
 
 // Game::Init - Load data, setup playfield
@@ -296,8 +235,6 @@ void Game::Init()
 		t->pos = vec2( (float)((i % 5) * 20), (float)((i / 5) * 20 + 50) );
 		t->target = vec2( SCRWIDTH, SCRHEIGHT ); // initially move to bottom right corner
 		t->speed = vec2( 0, 0 ), t->flags = Tank::ACTIVE | Tank::P1, t->maxspeed = (i < (MAXP1 / 2)) ? 0.65f : 0.45f;
-
-		t->UpdateGrid();
 	}
 
 	// create red tanks
@@ -307,13 +244,35 @@ void Game::Init()
 		t->pos = vec2( (float)((i % 12) * 20 + 900), (float)((i / 12) * 20 + 600) );
 		t->target = vec2( 424, 336 ); // move to player base
 		t->speed = vec2( 0, 0 ), t->flags = Tank::ACTIVE | Tank::P2, t->maxspeed = 0.3f;
-
-		t->UpdateGrid();
 	}
 
+	RefreshVectorGrid();
 	m_LButton = m_PrevButton = false;
 
 	last = std::clock();
+}
+
+//refresh vectors in grid
+void Game::RefreshVectorGrid()
+{
+	for (int j = 0; j < GRID_HEIGHT; j++)
+		for (int i = 0; i < GRID_WIDTH; i++)
+		{
+		gridP1.tanks[i][j].clear();
+		gridP2.tanks[i][j].clear();
+		}
+
+	for (unsigned int i = 0; i < MAXP1; i++)
+	{
+		std::pair<int, int> indices = gridP1.GetIndices(m_Tank[i]->pos);
+		gridP1.tanks[indices.first][indices.second].push_back(m_Tank[i]);
+	}
+
+	for (unsigned int i = 0; i < MAXP2; i++)
+	{
+		std::pair<int, int> indices = gridP2.GetIndices(m_Tank[i+MAXP1]->pos);
+		gridP2.tanks[indices.first][indices.second].push_back(m_Tank[i + MAXP1]);
+	}
 }
 
 // Game::DrawTanks - draw the tanks

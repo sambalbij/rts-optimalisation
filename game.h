@@ -5,9 +5,9 @@
 
 namespace Tmpl8 {
 
-#define MAXP1			8000			// increase to test your optimized code
+#define MAXP1			20000			// increase to test your optimized code
 #define MAXP2			(4 * MAXP1)	// because the player is smarter than the AI
-#define MAXBULLET		200
+#define MAXBULLET		200000
 #define GRID_WIDTH		5000			// the number of cells
 #define GRID_HEIGHT		5000
 #define GRID_CELL_SIZE	16			// the size of each cell, in pixels

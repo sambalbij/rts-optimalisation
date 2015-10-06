@@ -17,7 +17,7 @@ class Smoke
 {
 public:
 	struct Puff { int x, y, vy, life; };
-	Smoke() : active( false ), frame( 0 ) {};
+	Smoke() : active(false), frame(0) {};
 	void Tick();
 	Puff puff[8];
 	bool active;
@@ -30,7 +30,7 @@ public:
 	enum { ACTIVE = 1, P1 = 2, P2 = 4 };
 	Tank() : pos(vec2(0, 0)), speed(vec2(0, 0)), target(vec2(0, 0)), reloading(0), prev(), next() {};
 	~Tank();
-	void Fire( unsigned int party, vec2& pos, vec2& dir );
+	void Fire(unsigned int party, vec2& pos, vec2& dir);
 	void Tick();
 	void UpdateGrid();
 	vec2 pos, speed, target;
@@ -46,39 +46,40 @@ class Bullet
 {
 public:
 	enum { ACTIVE = 1, P1 = 2, P2 = 4 };
-	Bullet() : flags( 0 ) {};
+	Bullet() : flags(0) {};
 	void Tick();
 	vec2 pos, speed;
 	int flags;
 };
+
 const int GRID_CELL_SIZES[] = { 16, 100 };
 class Grid
 {
 public:
-	
+
 	Tank* cells[GRID_WIDTH][GRID_HEIGHT];
-	Tank* cells2[GRID_WIDTH/6][GRID_HEIGHT/6];
+	Tank* cells2[GRID_WIDTH / 6][GRID_HEIGHT / 6];
 
 	Grid()
 	{
 		for (int j = 0; j < GRID_HEIGHT; j++)
 			for (int i = 0; i < GRID_WIDTH; i++)
-				cells[i][j] = nullptr; 
-		
-		for (int j = 0; j < GRID_HEIGHT/6; j++)
-				for (int i = 0; i < GRID_WIDTH/6; i++)
-					cells2[i][j] = nullptr;
+				cells[i][j] = nullptr;
+
+		for (int j = 0; j < GRID_HEIGHT / 6; j++)
+			for (int i = 0; i < GRID_WIDTH / 6; i++)
+				cells2[i][j] = nullptr;
 	}
 
-	std::pair<int, int> GetIndices(vec2 pos, int i=0) const
+	std::pair<int, int> GetIndices(vec2 pos, int i = 0) const
 	{
-			return std::pair<int, int>((int)(pos.x / GRID_CELL_SIZES[i]), (int)(pos.y / GRID_CELL_SIZES[i]));
+		return std::pair<int, int>((int)(pos.x / GRID_CELL_SIZES[i]), (int)(pos.y / GRID_CELL_SIZES[i]));
 	}
 
-	// returns (tank, force) for each tank within range
-	std::vector<std::pair<Tank*, vec2>> TanksWithinInfluence(Tank* tank)
+	// returns total accumulated tank forces
+	vec2 TankForces(Tank* tank)
 	{
-		std::vector<std::pair<Tank*, vec2>> result;
+		vec2 result;
 
 		int x = tank->gridCell[0].first, y = tank->gridCell[0].second; // our tank's cell
 		for (int j = MAX(0, y - 1); j < MIN(GRID_WIDTH, y + 1); j++) // look in neighbouring cells as well
@@ -97,9 +98,8 @@ public:
 					float length2 = d.x * d.x + d.y * d.y; // squared length
 					if (length2 < 256) // 16 * 16
 					{
-						float mul = length2 < 64 ? 2.0f : 0.4f;				// force factor based on distance
-						result.emplace_back(current,						// the tank
-											d * (mul / sqrtf(length2)));	// the force vector
+						float mul = length2 < 64 ? 2.0f : 0.4f;	// force factor based on distance
+						result += d * (mul / sqrtf(length2));	// the force vector
 					}
 
 					current = current->next[0];
@@ -109,7 +109,7 @@ public:
 		return result;
 	}
 
-	Tank* ActiveTankWithinRange(vec2 pos, float r) // assumes r < GRID_CELL_SIZE
+	Tank* BulletCollision(vec2 pos)
 	{
 		std::pair<int, int> indices = GetIndices(pos);
 		Tank* tank = cells[indices.first][indices.second];
@@ -117,10 +117,10 @@ public:
 		while (tank != nullptr) // check own cell first
 		{
 			if (tank->flags & Tank::ACTIVE &&
-				pos.x > tank->pos.x - r &&
-				pos.y > tank->pos.y - r &&
-				pos.x < tank->pos.x + r &&
-				pos.y < tank->pos.y + r)
+				pos.x > tank->pos.x - 2 &&
+				pos.y > tank->pos.y - 2 &&
+				pos.x < tank->pos.x + 2 &&
+				pos.y < tank->pos.y + 2)
 				return tank;
 
 			tank = tank->next[0];
@@ -145,10 +145,10 @@ public:
 				while (tank != nullptr)
 				{
 					if (tank->flags & Tank::ACTIVE &&
-						pos.x > tank->pos.x - r &&
-						pos.y > tank->pos.y - r &&
-						pos.x < tank->pos.x + r &&
-						pos.y < tank->pos.y + r)
+						pos.x > tank->pos.x - 2 &&
+						pos.y > tank->pos.y - 2 &&
+						pos.x < tank->pos.x + 2 &&
+						pos.y < tank->pos.y + 2)
 						return tank;
 
 					tank = tank->next[0];
@@ -158,10 +158,10 @@ public:
 		return nullptr;
 	}
 
-	Tank* ActiveTankWithinRangeAndDirection(vec2 pos, float r, vec2 dir)
+	Tank* FindTarget(vec2 pos, vec2 dir)
 	{
-		float r2 = r * r;
-		std::pair<int, int> indices = GetIndices(pos,1);
+		const float r2 = 100 * 100;
+		std::pair<int, int> indices = GetIndices(pos, 1);
 
 		const int n = 1; // ceil(100 / GRID_CELL_SIZE)
 		int minX = MAX(0, MIN(indices.first, indices.first + (dir.x < 0 ? -n : n))); // smallest x of cell to check
@@ -182,7 +182,7 @@ public:
 						if (dist2 < r2) // squared distance check
 						{
 							float dist = sqrtf(dist2);
-							if (dist < r) // distance check
+							if (dist < 100) // distance check
 							{
 								diff /= dist;
 								if (dot(diff, dir) > 0.99999f) // direction check
@@ -205,15 +205,15 @@ class Sprite;
 class Game
 {
 public:
-	void SetTarget( Surface* a_Surface ) { m_Surface = a_Surface; }
-	void MouseMove( int x, int y ) { m_MouseX = x; m_MouseY = y; }
-	void MouseButton( bool b ) { m_LButton = b; }
+	void SetTarget(Surface* a_Surface) { m_Surface = a_Surface; }
+	void MouseMove(int x, int y) { m_MouseX = x; m_MouseY = y; }
+	void MouseButton(bool b) { m_LButton = b; }
 	void Init();
 	void UpdateTanks();
 	void UpdateBullets();
 	void DrawTanks();
 	void PlayerInput();
-	void Tick( float a_DT );
+	void Tick(float a_DT);
 	Surface* m_Surface, *m_Backdrop, *m_Heights, *m_Grid;
 	Sprite* m_P1Sprite, *m_P2Sprite, *m_PXSprite, *m_Smoke;
 	int m_ActiveP1, m_ActiveP2;

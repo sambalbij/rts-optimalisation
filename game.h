@@ -5,7 +5,7 @@
 
 namespace Tmpl8 {
 
-#define MAXP1			10			// increase to test your optimized code
+#define MAXP1			20000			// increase to test your optimized code
 #define MAXP2			(4 * MAXP1)	// because the player is smarter than the AI
 #define MAXBULLET		200000
 #define GRID_WIDTH		5000			// the number of cells
@@ -72,7 +72,6 @@ public:
 
 	std::pair<int, int> GetIndices(vec2 pos, int i=0) const
 	{
-		if (i ==0)
 			return std::pair<int, int>((int)(pos.x / GRID_CELL_SIZES[i]), (int)(pos.y / GRID_CELL_SIZES[i]));
 	}
 

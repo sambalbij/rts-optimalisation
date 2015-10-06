@@ -249,15 +249,15 @@ void Tank::UpdateGrid()
 	if (cell == nullptr)
 	{
 		grid.cells[gridCell[i].first][gridCell[i].second] = this;
-		return;
 	}
+	else
+	{
+		// insert at front
 
-	// insert at front
-
-	next[i] = cell;
-	cell->prev[i] = this;
-	grid.cells[gridCell[i].first][gridCell[i].second] = this;
-
+		next[i] = cell;
+		cell->prev[i] = this;
+		grid.cells[gridCell[i].first][gridCell[i].second] = this;
+	}
 	
 	
 	// second grid
@@ -335,7 +335,7 @@ void Game::Init()
 		Tank* t = m_Tank[i] = new Tank();
 		t->pos = vec2( (float)((i % 5) * 20), (float)((i / 5) * 20 + 50) );
 		t->target = vec2( SCRWIDTH, SCRHEIGHT ); // initially move to bottom right corner
-		t->speed = vec2( 0, 0 ), t->flags = Tank::ACTIVE | Tank::P1, t->maxspeed = (i < (MAXP1 / 2)) ? 0.65f : 0.45f;
+		t->speed = vec2( 0, 0 ), t->flags = Tank::ACTIVE | Tank::P1, t->maxspeed = (i < (MAXP1 / 2)) ? 4.65f : 4.45f;
 
 		t->UpdateGrid();
 	}
@@ -359,29 +359,63 @@ void Game::Init()
 // Game::DrawTanks - draw the tanks
 void Game::DrawTanks()
 {
-	for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
+	// p1
+	int asd = SCRWIDTH / GRID_CELL_SIZE2;
+	for (int yi = 0; yi <= SCRHEIGHT / GRID_CELL_SIZE2; ++yi)
 	{
-		Tank* t = m_Tank[i];
-		float x = t->pos.x, y = t->pos.y;
-		vec2 p1( x + 70 * t->speed.x + 22 * t->speed.y, y + 70 * t->speed.y - 22 * t->speed.x );
-		vec2 p2( x + 70 * t->speed.x - 22 * t->speed.y, y + 70 * t->speed.y + 22 * t->speed.x );
-
-		if (!(m_Tank[i]->flags & Tank::ACTIVE))
-			m_PXSprite->Draw( (int)x - 4, (int)y - 4, m_Surface ); // draw dead tank
-		else if (t->flags & Tank::P1) // draw blue tank
+		for (int xi = 0; xi <= SCRWIDTH / GRID_CELL_SIZE2; ++xi)
 		{
-			m_P1Sprite->Draw( (int)x - 4, (int)y - 4, m_Surface );
-			m_Surface->Line( x, y, x + 8 * t->speed.x, y + 8 * t->speed.y, 0x4444ff );
-		}
-		else // draw red tank
-		{
-			m_P2Sprite->Draw( (int)x - 4, (int)y - 4, m_Surface );
-			m_Surface->Line( x, y, x + 8 * t->speed.x, y + 8 * t->speed.y, 0xff4444 );
-		}
+			Tank* t = gridP1.cells2[xi][yi];
+			while (t != nullptr)
+			{
+				float x = t->pos.x, y = t->pos.y;
+				vec2 p1(x + 70 * t->speed.x + 22 * t->speed.y, y + 70 * t->speed.y - 22 * t->speed.x);
+				vec2 p2(x + 70 * t->speed.x - 22 * t->speed.y, y + 70 * t->speed.y + 22 * t->speed.x);
 
-		if ((x >= 0) && (x < SCRWIDTH) && (y >= 0) && (y < SCRHEIGHT))
-			m_Backdrop->GetBuffer()[(int)x + (int)y * SCRWIDTH] = SubBlend( m_Backdrop->GetBuffer()[(int)x + (int)y * SCRWIDTH], 0x030303 ); // tracks
+				if (!(t->flags & Tank::ACTIVE))
+					m_PXSprite->Draw((int)x - 4, (int)y - 4, m_Surface); // draw dead tank
+				else // draw blue tank
+				{
+					m_P1Sprite->Draw((int)x - 4, (int)y - 4, m_Surface);
+					m_Surface->Line(x, y, x + 8 * t->speed.x, y + 8 * t->speed.y, 0x4444ff);
+				}			
+
+				if ((x >= 0) && (x < SCRWIDTH) && (y >= 0) && (y < SCRHEIGHT))
+					m_Backdrop->GetBuffer()[(int)x + (int)y * SCRWIDTH] = SubBlend(m_Backdrop->GetBuffer()[(int)x + (int)y * SCRWIDTH], 0x030303); // tracks
+
+				t = t->next[1];
+			}
+		}
 	}
+
+	//p2
+	for (int yi = 0; yi <= SCRHEIGHT / GRID_CELL_SIZE2; ++yi)
+	{
+		for (int xi = 0; xi <= SCRWIDTH / GRID_CELL_SIZE2; ++xi)
+		{
+			Tank* t = gridP2.cells2[xi][yi];
+			while (t != nullptr)
+			{
+				float x = t->pos.x, y = t->pos.y;
+				vec2 p1(x + 70 * t->speed.x + 22 * t->speed.y, y + 70 * t->speed.y - 22 * t->speed.x);
+				vec2 p2(x + 70 * t->speed.x - 22 * t->speed.y, y + 70 * t->speed.y + 22 * t->speed.x);
+
+				if (!(t->flags & Tank::ACTIVE))
+					m_PXSprite->Draw((int)x - 4, (int)y - 4, m_Surface); // draw dead tank
+					else // draw red tank
+				{
+					m_P2Sprite->Draw((int)x - 4, (int)y - 4, m_Surface);
+					m_Surface->Line(x, y, x + 8 * t->speed.x, y + 8 * t->speed.y, 0xff4444);
+				}
+
+				if ((x >= 0) && (x < SCRWIDTH) && (y >= 0) && (y < SCRHEIGHT))
+					m_Backdrop->GetBuffer()[(int)x + (int)y * SCRWIDTH] = SubBlend(m_Backdrop->GetBuffer()[(int)x + (int)y * SCRWIDTH], 0x030303); // tracks
+
+				t = t->next[1];
+			}
+		}
+	}
+
 }
 
 // Game::PlayerInput - handle player input

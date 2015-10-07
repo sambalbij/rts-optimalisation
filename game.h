@@ -28,7 +28,7 @@ class Tank
 {
 public:
 	enum { ACTIVE = 1, P1 = 2, P2 = 4 };
-	Tank() : pos(vec2(0, 0)), speed(vec2(0, 0)), target(vec2(0, 0)), reloading(0), prev(), next() {};
+	Tank() : pos(vec2(0, 0)), speed(vec2(0, 0)), target(vec2(0, 0)), reloading(0) {};
 	~Tank();
 	void Fire(unsigned int party, vec2& pos, vec2& dir);
 	void Tick();
@@ -37,8 +37,8 @@ public:
 	float maxspeed;
 	int flags, reloading;
 	Smoke smoke;
-	Tank* prev[2];
-	Tank* next[2];
+	Tank* prev[2] = {};
+	Tank* next[2] = {};
 	std::pair<int, int> gridCell[2];
 };
 

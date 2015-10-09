@@ -113,6 +113,8 @@ void Tank::Fire( unsigned int party, vec2& pos, vec2& dir )
 	}
 }
 
+timer tm;
+float elapsed1=0, elapsed2=0;
 // Tank::Tick - update single tank
 void Tank::Tick()
 {
@@ -172,12 +174,19 @@ void Tank::Tick()
 	// shoot, if reloading completed
 	if (--reloading >= 0)
 		return;
-
 	Tank* target;
+	tm.reset();
 	if (flags & P1)
+	{
 		target = game->gridP2.FindTarget(pos, speed);
+		elapsed1 += tm.elapsed();
+	}
 	else
+	{
 		target = game->gridP1.FindTarget(pos, speed);
+		elapsed2 += tm.elapsed();
+	}
+	//tm.reset();
 
 	if (target == nullptr)
 		return;
@@ -431,6 +440,14 @@ void Game::Tick( float a_DT )
 	sprintf(buffer, "%02i fps", (int)(1.0f / dt));
 	m_Surface->Print(buffer, 965, 10, 0xffff00);
 
+	char t[200];
+	sprintf(t, "elapsed1: %5.3f ms", elapsed1);
+	m_Surface->Print(t, 2, 2, 0x11ffffff);
+
+	sprintf(t, "elapsed2: %5.3f ms", elapsed2);
+	m_Surface->Print(t, 2, 24, 0x11ffffff);
+	elapsed1 = 0;
+	elapsed2 = 0;
 	if ((aliveP1 > 0) && (aliveP2 > 0))
 	{
 		sprintf( buffer, "blue army: %03i  red army: %03i", aliveP1, aliveP2 );

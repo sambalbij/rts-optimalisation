@@ -59,18 +59,18 @@ class Grid
 {
 public:
 
-	Tank* cells[GRID_WIDTH][GRID_HEIGHT];
-	Tank* cells2[GRID_WIDTH / 6][GRID_HEIGHT / 6];
+	Tank* smallCells[GRID_WIDTH][GRID_HEIGHT];
+	Tank* largeCells[GRID_WIDTH / 6][GRID_HEIGHT / 6];
 
 	Grid()
 	{
 		for (int j = 0; j < GRID_HEIGHT; j++)
 			for (int i = 0; i < GRID_WIDTH; i++)
-				cells[i][j] = nullptr;
+				smallCells[i][j] = nullptr;
 
 		for (int j = 0; j < GRID_HEIGHT / 6; j++)
 			for (int i = 0; i < GRID_WIDTH / 6; i++)
-				cells2[i][j] = nullptr;
+				largeCells[i][j] = nullptr;
 	}
 
 	std::pair<int, int> GetIndices(vec2 pos, int i = 0) const
@@ -84,10 +84,10 @@ public:
 		vec2 result;
 
 		int x = tank->gridCell[0].first, y = tank->gridCell[0].second; // our tank's cell
-		for (int j = MAX(0, y - 1); j < MIN(GRID_WIDTH, y + 1); j++) // look in neighbouring cells as well
-			for (int i = MAX(0, x - 1); i < MIN(GRID_WIDTH, x + 1); i++)
+		for (int j = MAX(0, y - 1); j <= MIN(GRID_HEIGHT - 1, y + 1); j++) // look in neighbouring cells as well
+			for (int i = MAX(0, x - 1); i <= MIN(GRID_WIDTH - 1, x + 1); i++)
 			{
-				Tank* current = cells[i][j];
+				Tank* current = smallCells[i][j];
 				while (current != nullptr) // loop over all tanks in cell
 				{
 					if (current == tank) // we don't want our tank
@@ -114,7 +114,7 @@ public:
 	Tank* BulletCollision(vec2 pos)
 	{
 		std::pair<int, int> indices = GetIndices(pos);
-		Tank* tank = cells[indices.first][indices.second];
+		Tank* tank = smallCells[indices.first][indices.second];
 
 		while (tank != nullptr) // check own cell first
 		{
@@ -143,7 +143,7 @@ public:
 				if (i == 0 && j == 0)
 					continue;
 
-				tank = cells[x][y];
+				tank = smallCells[x][y];
 				while (tank != nullptr)
 				{
 					if (tank->flags & Tank::ACTIVE &&
@@ -174,7 +174,7 @@ public:
 		for (int y = minY; y <= maxY; y++)
 			for (int x = minX; x <= maxX; x++)
 			{
-				Tank* tank = cells2[x][y];
+				Tank* tank = largeCells[x][y];
 				while (tank != nullptr) // all tanks in cell
 				{
 					if (tank->flags & Tank::ACTIVE) // only active tanks

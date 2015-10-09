@@ -1,6 +1,4 @@
-grid update
-	- all tanks at once
-	- grid2 multiple in size of grid
+
 
 TankForces still significant
 

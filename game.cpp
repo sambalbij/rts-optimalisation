@@ -223,7 +223,7 @@ void Tank::UpdateGrid()
 	int i = 0;
 
 	Grid& grid = flags & P1 ? game->gridP1 : game->gridP2;
-	Tank* cell = grid.cells[gridCell[i].first][gridCell[i].second]; // old cell
+	Tank* cell = grid.smallCells[gridCell[i].first][gridCell[i].second]; // old cell
 
 	// remove from old cell
 	if (prev[i] != nullptr)
@@ -233,18 +233,18 @@ void Tank::UpdateGrid()
 
 	// update grid if necessary
 	if (cell == this)
-		grid.cells[gridCell[i].first][gridCell[i].second] = next[i];
+		grid.smallCells[gridCell[i].first][gridCell[i].second] = next[i];
 
 	prev[i] = next[i] = nullptr;
 
 	// add to new cell
 	gridCell[i] = grid.GetIndices(pos);
-	cell = grid.cells[gridCell[i].first][gridCell[i].second]; // new cell
+	cell = grid.smallCells[gridCell[i].first][gridCell[i].second]; // new cell
 
 	// empty cell
 	if (cell == nullptr)
 	{
-		grid.cells[gridCell[i].first][gridCell[i].second] = this;
+		grid.smallCells[gridCell[i].first][gridCell[i].second] = this;
 	}
 	else
 	{
@@ -252,14 +252,14 @@ void Tank::UpdateGrid()
 
 		next[i] = cell;
 		cell->prev[i] = this;
-		grid.cells[gridCell[i].first][gridCell[i].second] = this;
+		grid.smallCells[gridCell[i].first][gridCell[i].second] = this;
 	}
 	
 	
 	// second grid
 	++i;
 	
-	 cell = grid.cells2[gridCell[i].first][gridCell[i].second]; // old cell
+	cell = grid.largeCells[gridCell[i].first][gridCell[i].second]; // old cell
 
 	// remove from old cell
 	if (prev[i] != nullptr)
@@ -269,27 +269,25 @@ void Tank::UpdateGrid()
 
 	// update grid if necessary
 	if (cell == this)
-		grid.cells2[gridCell[i].first][gridCell[i].second] = next[i];
+		grid.largeCells[gridCell[i].first][gridCell[i].second] = next[i];
 
 	prev[i] = next[i] = nullptr;
 
 	// add to new cell
 	gridCell[i] = grid.GetIndices(pos,i);
-	cell = grid.cells2[gridCell[i].first][gridCell[i].second]; // new cell
+	cell = grid.largeCells[gridCell[i].first][gridCell[i].second]; // new cell
 
 	// empty cell
 	if (cell == nullptr)
 	{
-		grid.cells2[gridCell[i].first][gridCell[i].second] = this;
+		grid.largeCells[gridCell[i].first][gridCell[i].second] = this;
 		return;
 	}
 
 	// insert at front
 	next[i] = cell;
 	cell->prev[i] = this;
-	grid.cells2[gridCell[i].first][gridCell[i].second] = this;
-
-	
+	grid.largeCells[gridCell[i].first][gridCell[i].second] = this;
 }
 
 // Game::Init - Load data, setup playfield
@@ -361,7 +359,7 @@ void Game::DrawTanks()
 	{
 		for (int xi = 0; xi <= SCRWIDTH / GRID_CELL_SIZE2; ++xi)
 		{
-			Tank* t = gridP1.cells2[xi][yi];
+			Tank* t = gridP1.largeCells[xi][yi];
 			while (t != nullptr)
 			{
 				float x = t->pos.x, y = t->pos.y;
@@ -389,7 +387,7 @@ void Game::DrawTanks()
 	{
 		for (int xi = 0; xi <= SCRWIDTH / GRID_CELL_SIZE2; ++xi)
 		{
-			Tank* t = gridP2.cells2[xi][yi];
+			Tank* t = gridP2.largeCells[xi][yi];
 			while (t != nullptr)
 			{
 				float x = t->pos.x, y = t->pos.y;

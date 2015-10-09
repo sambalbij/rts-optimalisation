@@ -207,6 +207,7 @@ class Sprite;
 class Game
 {
 public:
+	vec2 EvadeMountainPeaks(Tank* t);
 	void SetTarget(Surface* a_Surface) { m_Surface = a_Surface; }
 	void MouseMove(int x, int y) { m_MouseX = x; m_MouseY = y; }
 	void MouseButton(bool b) { m_LButton = b; }
@@ -225,6 +226,7 @@ public:
 	Tank** m_Tank;
 	std::clock_t last;
 	Grid gridP1, gridP2;
+	float costable[720], sintable[720];
 };
 
 }; // namespace Templ8

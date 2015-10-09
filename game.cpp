@@ -125,22 +125,7 @@ void Tank::Tick()
 
 	vec2 force = normalize( target - pos );
 	// evade mountain peaks
-	for ( unsigned int i = 0; i < 16; i++ )
-	{
-		vec2 d( pos.x - peakx[i], pos.y - peaky[i] );
-		float sd = (d.x * d.x + d.y * d.y) * 0.2f;
-		if (sd < 1500) 
-		{
-			force += d * 0.03f * (peakh[i] / sd);
-			float r = sqrtf( sd );
-			for( int j = 0; j < 720; j++ )
-			{
-				float x = peakx[i] + r * sinf( (float)j * PI / 360.0f );
-				float y = peaky[i] + r * cosf( (float)j * PI / 360.0f );
-				game->m_Surface->AddPlot( (int)x, (int)y, 0x000500 );
-			}
-		}
-	}
+	force += game->EvadeMountainPeaks(this);
 
 	// evade P1 tanks
 	force += game->gridP1.TankForces(this);
@@ -311,6 +296,13 @@ void Game::Init()
 	m_LButton = m_PrevButton = false;
 
 	last = std::clock();
+
+	// set tables
+	for (int j = 0; j < 720; j++)
+	{
+		sintable[j] = sinf((float)j * PI / 360.0f);
+		costable[j] = cosf((float)j * PI / 360.0f);
+	}
 }
 
 // Game::DrawTanks - draw the tanks
@@ -492,4 +484,26 @@ void Game::UpdateGrid()
 		tank->UpdateGridLarge(newIndices, gridP2, oldcell); //remove from old cell + add to new cell from the large grid
 	}
 
+}
+
+vec2 Game::EvadeMountainPeaks(Tank*t)
+{
+	vec2 force;
+	for (unsigned int i = 0; i < 16; i++)
+	{
+		vec2 d(t->pos.x - peakx[i], t->pos.y - peaky[i]);
+		float sd = (d.x * d.x + d.y * d.y);// *0.2f;
+		if (sd < 7500)//1500)*5
+		{
+			force += d*0.15f*(peakh[i] / sd);//force += d * 0.03f * (peakh[i] / sd);
+			float r = sqrtf(sd*0.2);
+			for (int j = 0; j < 720; j++)
+			{
+				float x = peakx[i] + r * sintable[j];
+				float y = peaky[i] + r * costable[j];
+				game->m_Surface->AddPlot((int)x, (int)y, 0x000500);
+			}
+		}
+	}
+	return force;
 }

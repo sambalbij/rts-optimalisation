@@ -6,7 +6,7 @@
 
 namespace Tmpl8 {
 
-#define MAXP1			40000			// increase to test your optimized code
+#define MAXP1			1			// increase to test your optimized code
 #define MAXP2			(4 * MAXP1)	// because the player is smarter than the AI
 #define MAXBULLET		200000
 #define GRID_WIDTH		128			// the number of cells
@@ -63,7 +63,7 @@ public:
 
 	Tank* smallCells[GRID_WIDTH][GRID_HEIGHT];
 	Tank* largeCells[GRID_WIDTH / 6][GRID_HEIGHT / 6];
-
+	
 	Grid()
 	{
 		for (int j = 0; j < GRID_HEIGHT; j++)
@@ -292,6 +292,7 @@ public:
 	float costable[720], sintable[720];
 	bool gridOccupied[GRID_WIDTH][GRID_HEIGHT];
 	std::vector<std::pair<int, int>> nonEmptyCells;
+	bool nearMountainPeak[16][GRID_WIDTH][GRID_HEIGHT];
 };
 
 }; // namespace Templ8

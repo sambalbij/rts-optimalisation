@@ -181,8 +181,6 @@ void Tank::Tick()
 	speed = normalize(speed);
 	pos += speed * maxspeed * 0.5f;
 
-	UpdateGrid();
-
 	// shoot, if reloading completed
 	if (--reloading >= 0)
 		return;
@@ -198,98 +196,72 @@ void Tank::Tick()
 
 	Fire(flags & (P1 | P2), pos, speed); // shoot
 	reloading = 200; // and wait before next shot is ready
-
-	//unsigned int start = 0, end = MAXP1;
-	//if (flags & P1)
-	//{
-	//	start = MAXP1;
-	//	end = MAXP1 + MAXP2;
-	//}
-
-	//for ( unsigned int i = start; i < end; i++ ) if (game->m_Tank[i]->flags & ACTIVE)
-	//{
-	//	vec2 d = game->m_Tank[i]->pos - pos;
-	//	if ((length( d ) < 100) && (dot( normalize( d ), speed ) > 0.99999f))
-	//	{
-	//		Fire( flags & (P1|P2), pos, speed ); // shoot
-	//		reloading = 200; // and wait before next shot is ready
-	//		break;
-	//	}
-	//}
 }
 
-void Tank::UpdateGrid()
+void Tank::UpdateGridSmall(std::pair<int, int> ind, Grid& grid, Tank* cell)
 {
-	int i = 0;
-
-	Grid& grid = flags & P1 ? game->gridP1 : game->gridP2;
-	Tank* cell = grid.cells[gridCell[i].first][gridCell[i].second]; // old cell
-
 	// remove from old cell
-	if (prev[i] != nullptr)
-		prev[i]->next[i] = next[i];
-	if (next[i] != nullptr)
-		next[i]->prev[i] = prev[i];
+	if (prev[0] != nullptr)
+		prev[0]->next[0] = next[0];
+	if (next[0] != nullptr)
+		next[0]->prev[0] = prev[0];
 
 	// update grid if necessary
 	if (cell == this)
-		grid.cells[gridCell[i].first][gridCell[i].second] = next[i];
+		grid.cells[gridCell[0].first][gridCell[0].second] = next[0];
 
-	prev[i] = next[i] = nullptr;
+	prev[0] = next[0] = nullptr;
 
 	// add to new cell
-	gridCell[i] = grid.GetIndices(pos);
-	cell = grid.cells[gridCell[i].first][gridCell[i].second]; // new cell
+	gridCell[0] = ind;
+	cell = grid.cells[gridCell[0].first][gridCell[0].second]; // new cell
 
 	// empty cell
 	if (cell == nullptr)
 	{
-		grid.cells[gridCell[i].first][gridCell[i].second] = this;
+		grid.cells[gridCell[0].first][gridCell[0].second] = this;
 	}
 	else
 	{
 		// insert at front
 
-		next[i] = cell;
-		cell->prev[i] = this;
-		grid.cells[gridCell[i].first][gridCell[i].second] = this;
-	}
-	
-	
-	// second grid
-	++i;
-	
-	 cell = grid.cells2[gridCell[i].first][gridCell[i].second]; // old cell
+		next[0] = cell;
+		cell->prev[0] = this;
+		grid.cells[gridCell[0].first][gridCell[0].second] = this;
+	}	
+}
 
+void Tank::UpdateGridLarge(std::pair<int, int> ind, Grid& grid, Tank* cell)
+{
 	// remove from old cell
-	if (prev[i] != nullptr)
-		prev[i]->next[i] = next[i];
-	if (next[i] != nullptr)
-		next[i]->prev[i] = prev[i];
+	if (prev[1] != nullptr)
+		prev[1]->next[1] = next[1];
+	if (next[1] != nullptr)
+		next[1]->prev[1] = prev[1];
 
 	// update grid if necessary
 	if (cell == this)
-		grid.cells2[gridCell[i].first][gridCell[i].second] = next[i];
+		grid.cells2[gridCell[1].first][gridCell[1].second] = next[1];
 
-	prev[i] = next[i] = nullptr;
+	prev[1] = next[1] = nullptr;
 
 	// add to new cell
-	gridCell[i] = grid.GetIndices(pos,i);
-	cell = grid.cells2[gridCell[i].first][gridCell[i].second]; // new cell
+	gridCell[1] = ind;
+	cell = grid.cells2[gridCell[1].first][gridCell[1].second]; // new cell
 
 	// empty cell
 	if (cell == nullptr)
 	{
-		grid.cells2[gridCell[i].first][gridCell[i].second] = this;
-		return;
+		grid.cells2[gridCell[1].first][gridCell[1].second] = this;
 	}
+	else
+	{
+		// insert at front
 
-	// insert at front
-	next[i] = cell;
-	cell->prev[i] = this;
-	grid.cells2[gridCell[i].first][gridCell[i].second] = this;
-
-	
+		next[1] = cell;
+		cell->prev[1] = this;
+		grid.cells2[gridCell[1].first][gridCell[1].second] = this;
+	}
 }
 
 // Game::Init - Load data, setup playfield
@@ -325,6 +297,7 @@ void Game::Init()
 	m_PXSprite = new Sprite( new Surface( "testdata/deadtank.tga" ), 1, Sprite::BLACKFLARE );
 	m_Smoke = new Sprite( new Surface( "testdata/smoke.tga" ), 10, Sprite::FLARE );
 
+	std::pair<int, int> initgridcell = { -1, -1 };
 	// create blue tanks
 	for ( unsigned int i = 0; i < MAXP1; i++ )
 	{
@@ -332,8 +305,8 @@ void Game::Init()
 		t->pos = vec2( (float)((i % 5) * 20), (float)((i / 5) * 20 + 50) );
 		t->target = vec2( SCRWIDTH, SCRHEIGHT ); // initially move to bottom right corner
 		t->speed = vec2( 0, 0 ), t->flags = Tank::ACTIVE | Tank::P1, t->maxspeed = (i < (MAXP1 / 2)) ? 0.65f : 0.45f;
-
-		t->UpdateGrid();
+		t->gridCell[0] = initgridcell, t->gridCell[1] = initgridcell;
+		//t->UpdateGrid();
 	}
 
 	// create red tanks
@@ -343,10 +316,10 @@ void Game::Init()
 		t->pos = vec2( (float)((i % 12) * 20 + 900), (float)((i / 12) * 20 + 600) );
 		t->target = vec2( 424, 336 ); // move to player base
 		t->speed = vec2( 0, 0 ), t->flags = Tank::ACTIVE | Tank::P2, t->maxspeed = 0.3f;
-
-		t->UpdateGrid();
+		t->gridCell[0] = initgridcell, t->gridCell[1] = initgridcell;
+		//t->UpdateGrid();
 	}
-
+	UpdateGrid();
 	m_LButton = m_PrevButton = false;
 
 	last = std::clock();
@@ -454,6 +427,8 @@ void Game::Tick( float a_DT )
 	for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
 		m_Tank[i]->Tick();
 
+	UpdateGrid();
+
 	for ( unsigned int i = 0; i < MAXBULLET; i++ )
 		bullet[i].Tick();
 
@@ -482,4 +457,51 @@ void Game::Tick( float a_DT )
 
 	sprintf( buffer, "nice, you win! blue left: %i", aliveP1 );
 	m_Surface->Print( buffer, 200, 370, 0xffff00 );
+}
+//int counter = 0;
+void Game::UpdateGrid()
+{
+//	counter++;
+	for (int i = 0; i < MAXP1; ++i)
+	{
+		Tank* tank = m_Tank[i];
+
+		// Small grid
+		Tank* oldcell = gridP1.cells[MAX(tank->gridCell[0].first, 0)][MAX(tank->gridCell[0].second, 0)]; // oldcell small grid
+		std::pair<int,int> newIndices = gridP1.GetIndices(tank->pos);
+	//	if (tank->gridCell[0] == newIndices) // check if cell has changed in small grid
+	//		continue; // tank can stay in the cell
+
+		tank->UpdateGridSmall(newIndices,gridP1, oldcell); //remove from old cell + add to new cell from the small grid
+
+		//Large grid
+		oldcell = gridP1.cells2[MAX(tank->gridCell[1].first, 0)][MAX(tank->gridCell[1].second, 0)]; //oldcell large grid
+		newIndices.first /= 8, newIndices.second/= 8;
+		if (tank->gridCell[1] == newIndices) // check if cell has changed in large grid
+			continue; // tank can stay in the cell
+
+		tank->UpdateGridLarge(newIndices,gridP1, oldcell); //remove from old cell + add to new cell from the large grid
+	}
+
+	for (int i = MAXP1; i < MAXP1+MAXP2; ++i)
+	{
+		Tank* tank = m_Tank[i];
+
+		// Small grid
+		Tank* oldcell = gridP2.cells[MAX(tank->gridCell[0].first, 0)][MAX(tank->gridCell[0].second, 0)]; // oldcell small grid
+		std::pair<int, int> newIndices = gridP2.GetIndices(tank->pos);
+		if (tank->gridCell[0] == newIndices) // check if cell has changed in small grid
+			continue; // tank can stay in the cell
+
+		tank->UpdateGridSmall(newIndices, gridP2, oldcell); //remove from old cell + add to new cell from the small grid
+
+		//Large grid
+		oldcell = gridP2.cells2[MAX(tank->gridCell[1].first, 0)][MAX(tank->gridCell[1].second, 0)]; //oldcell large grid
+		newIndices.first /= 8, newIndices.second /= 8;
+		if (tank->gridCell[1] == newIndices) // check if cell has changed in large grid
+			continue; // tank can stay in the cell
+
+		tank->UpdateGridLarge(newIndices, gridP2, oldcell); //remove from old cell + add to new cell from the large grid
+	}
+
 }

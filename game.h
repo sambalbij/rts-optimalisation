@@ -11,8 +11,9 @@ namespace Tmpl8 {
 #define GRID_WIDTH		5000			// the number of cells
 #define GRID_HEIGHT		5000
 #define GRID_CELL_SIZE	16			// the size of each cell, in pixels
-#define GRID_CELL_SIZE2	100	
+#define GRID_CELL_SIZE2	128	
 
+class Grid;
 class Smoke
 {
 public:
@@ -32,7 +33,8 @@ public:
 	~Tank();
 	void Fire(unsigned int party, vec2& pos, vec2& dir);
 	void Tick();
-	void UpdateGrid();
+	void UpdateGridSmall(std::pair<int,int> ind, Grid& grid, Tank* cell);
+	void UpdateGridLarge(std::pair<int, int> ind, Grid& grid, Tank* cell);
 	vec2 pos, speed, target;
 	float maxspeed;
 	int flags, reloading;
@@ -52,7 +54,7 @@ public:
 	int flags;
 };
 
-const int GRID_CELL_SIZES[] = { 16, 100 };
+const int GRID_CELL_SIZES[] = { 16, 128 };
 class Grid
 {
 public:
@@ -210,6 +212,7 @@ public:
 	void MouseButton(bool b) { m_LButton = b; }
 	void Init();
 	void UpdateTanks();
+	void UpdateGrid();
 	void UpdateBullets();
 	void DrawTanks();
 	void PlayerInput();

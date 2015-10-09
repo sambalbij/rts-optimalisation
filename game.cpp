@@ -143,10 +143,13 @@ void Tank::Tick()
 	}
 
 	// evade P1 tanks
-	force += game->gridP1.TankForces(this);
+	//force += game->gridP1.TankForces(this);
 
 	// evade P2 tanks
-	force += game->gridP2.TankForces(this);
+	//force += game->gridP2.TankForces(this);
+
+	force += this->forces;
+	this->forces = vec2(0, 0);
 
 	// evade user dragged line
 	if ((flags & P1) && (game->m_LButton))
@@ -212,7 +215,6 @@ void Tank::UpdateGridSmall(std::pair<int, int> ind, Grid& grid, Tank* cell)
 	else
 	{
 		// insert at front
-
 		next[0] = cell;
 		cell->prev[0] = this;
 		grid.smallCells[gridCell[0].first][gridCell[0].second] = this;
@@ -245,7 +247,6 @@ void Tank::UpdateGridLarge(std::pair<int, int> ind, Grid& grid, Tank* cell)
 	else
 	{
 		// insert at front
-
 		next[1] = cell;
 		cell->prev[1] = this;
 		grid.largeCells[gridCell[1].first][gridCell[1].second] = this;
@@ -307,6 +308,11 @@ void Game::Init()
 		t->gridCell[0] = initgridcell, t->gridCell[1] = initgridcell;
 		//t->UpdateGrid();
 	}
+
+	for (int y = 0; y < GRID_HEIGHT; y++)
+		for (int x = 0; x < GRID_WIDTH; x++)
+			gridOccupied[x][y] = 0;
+
 	UpdateGrid();
 	m_LButton = m_PrevButton = false;
 
@@ -412,9 +418,18 @@ void Game::Tick( float a_DT )
 	m_LButton = (GetAsyncKeyState( VK_LBUTTON ) != 0), m_MouseX = p.x, m_MouseY = p.y;
 	m_Backdrop->CopyTo( m_Surface, 0, 0 );
 
+	for (const auto& p : nonEmptyCells)
+	{
+		int x = p.first, y = p.second;
+		gridP1.TankForces(x, y, gridP2.smallCells[x][y]);
+		gridP2.TankForces(x, y, gridP1.smallCells[x][y]);
+		gridOccupied[x][y] = false; // reset for the next iteration
+	}
+
 	for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
 		m_Tank[i]->Tick();
 
+	nonEmptyCells.clear();
 	UpdateGrid();
 
 	for ( unsigned int i = 0; i < MAXBULLET; i++ )
@@ -455,32 +470,46 @@ void Game::UpdateGrid()
 		Tank* tank = m_Tank[i];
 
 		// Small grid
-		Tank* oldcell = gridP1.smallCells[MAX(tank->gridCell[0].first, 0)][MAX(tank->gridCell[0].second, 0)]; // oldcell small grid
 		std::pair<int,int> newIndices = gridP1.GetIndices(tank->pos);
+
+		if (!gridOccupied[newIndices.first][newIndices.second])
+		{
+			nonEmptyCells.push_back(newIndices);
+			gridOccupied[newIndices.first][newIndices.second] = true;
+		}
+
 		if (tank->gridCell[0] == newIndices) // check if cell has changed in small grid
 			continue; // tank can stay in the cell
 
+		Tank* oldcell = gridP1.smallCells[MAX(tank->gridCell[0].first, 0)][MAX(tank->gridCell[0].second, 0)]; // oldcell small grid
 		tank->UpdateGridSmall(newIndices,gridP1, oldcell); //remove from old cell + add to new cell from the small grid
 
 		//Large grid
-		oldcell = gridP1.largeCells[MAX(tank->gridCell[1].first, 0)][MAX(tank->gridCell[1].second, 0)]; //oldcell large grid
-		newIndices.first /= 8, newIndices.second/= 8;
+		newIndices.first /= 8, newIndices.second /= 8;
 		if (tank->gridCell[1] == newIndices) // check if cell has changed in large grid
 			continue; // tank can stay in the cell
 
+		oldcell = gridP1.largeCells[MAX(tank->gridCell[1].first, 0)][MAX(tank->gridCell[1].second, 0)]; //oldcell large grid
 		tank->UpdateGridLarge(newIndices,gridP1, oldcell); //remove from old cell + add to new cell from the large grid
 	}
 
-	for (int i = MAXP1; i < MAXP1+MAXP2; ++i)
+	for (int i = MAXP1; i < MAXP1 + MAXP2; ++i)
 	{
 		Tank* tank = m_Tank[i];
 
 		// Small grid
-		Tank* oldcell = gridP2.smallCells[MAX(tank->gridCell[0].first, 0)][MAX(tank->gridCell[0].second, 0)]; // oldcell small grid
 		std::pair<int, int> newIndices = gridP2.GetIndices(tank->pos);
+
+		if (!gridOccupied[newIndices.first][newIndices.second])
+		{
+			nonEmptyCells.push_back(newIndices);
+			gridOccupied[newIndices.first][newIndices.second] = true;
+		}
+
 		if (tank->gridCell[0] == newIndices) // check if cell has changed in small grid
 			continue; // tank can stay in the cell
 
+		Tank* oldcell = gridP2.smallCells[MAX(tank->gridCell[0].first, 0)][MAX(tank->gridCell[0].second, 0)]; // oldcell small grid
 		tank->UpdateGridSmall(newIndices, gridP2, oldcell); //remove from old cell + add to new cell from the small grid
 
 		//Large grid
@@ -491,5 +520,4 @@ void Game::UpdateGrid()
 
 		tank->UpdateGridLarge(newIndices, gridP2, oldcell); //remove from old cell + add to new cell from the large grid
 	}
-
 }

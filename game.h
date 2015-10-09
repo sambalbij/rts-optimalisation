@@ -1,4 +1,5 @@
 #include <ctime>
+#include <set>
 
 #ifndef I_GAME_H
 #define I_GAME_H
@@ -8,7 +9,7 @@ namespace Tmpl8 {
 #define MAXP1			40000			// increase to test your optimized code
 #define MAXP2			(4 * MAXP1)	// because the player is smarter than the AI
 #define MAXBULLET		200000
-#define GRID_WIDTH		5000			// the number of cells
+#define GRID_WIDTH		128			// the number of cells
 #define GRID_HEIGHT		5000
 #define GRID_CELL_SIZE	16			// the size of each cell, in pixels
 #define GRID_CELL_SIZE2	128	
@@ -29,7 +30,7 @@ class Tank
 {
 public:
 	enum { ACTIVE = 1, P1 = 2, P2 = 4 };
-	Tank() : pos(vec2(0, 0)), speed(vec2(0, 0)), target(vec2(0, 0)), reloading(0), prev(),next() {};
+	Tank() : pos(vec2(0, 0)), speed(vec2(0, 0)), target(vec2(0, 0)), reloading(0), forces(vec2(0, 0)), prev(), next() {};
 	~Tank();
 	void Fire(unsigned int party, vec2& pos, vec2& dir);
 	void Tick();
@@ -42,6 +43,7 @@ public:
 	Tank* prev[2];
 	Tank* next[2];
 	std::pair<int, int> gridCell[2];
+	vec2 forces;
 };
 
 class Bullet
@@ -76,6 +78,66 @@ public:
 	std::pair<int, int> GetIndices(vec2 pos, int i = 0) const
 	{
 		return std::pair<int, int>((int)(pos.x / GRID_CELL_SIZES[i]), (int)(pos.y / GRID_CELL_SIZES[i]));
+	}
+
+	void TankForces(int x, int y, Tank* foreign) const
+	{
+		Tank* start = smallCells[x][y];
+
+		for (int j = MAX(0, y - 1); j < MIN(GRID_HEIGHT, y + 1); j++)	// look in neighbouring cells up and left
+			for (int i = MAX(0, x - 1); i < MIN(GRID_WIDTH, x + 1); i++)// exploiting symmetry of forces
+			{
+				// calculate forces for all pairs of tanks in cell
+				Tank* other = smallCells[i][j];
+				while (other != nullptr)
+				{
+					Tank* own = start;
+					while (own != nullptr)
+					{
+						if (other == own) // tanks don't push themselves
+						{
+							own = own->next[0];
+							continue;
+						}
+
+						vec2 d = other->pos - own->pos; // distance
+						float length2 = d.x * d.x + d.y * d.y; // squared length
+						if (length2 < 256) // 16 * 16
+						{
+							float mul = length2 < 64 ? 2.0f : 0.4f;	// force factor based on distance
+							vec2 f = d * (mul / sqrtf(length2));	// the force vector
+							own->forces -= f; // symmetric forces
+							other->forces += f;
+						}
+
+						own = own->next[0];
+					}
+
+					own = foreign; // check against other player's grid
+					while (own != nullptr)
+					{
+						if (other == own) // tanks don't push themselves
+						{
+							own = own->next[0];
+							continue;
+						}
+
+						vec2 d = other->pos - own->pos; // distance
+						float length2 = d.x * d.x + d.y * d.y; // squared length
+						if (length2 < 256) // 16 * 16
+						{
+							float mul = length2 < 64 ? 2.0f : 0.4f;	// force factor based on distance
+							vec2 f = d * (mul / sqrtf(length2));	// the force vector
+							own->forces -= f; // symmetric forces
+							other->forces += f;
+						}
+
+						own = own->next[0];
+					}
+
+					other = other->next[0];
+				}
+			}
 	}
 
 	// returns total accumulated tank forces
@@ -211,6 +273,7 @@ public:
 	void MouseMove(int x, int y) { m_MouseX = x; m_MouseY = y; }
 	void MouseButton(bool b) { m_LButton = b; }
 	void Init();
+	void UpdateForces();
 	void UpdateTanks();
 	void UpdateGrid();
 	void UpdateBullets();
@@ -225,6 +288,8 @@ public:
 	Tank** m_Tank;
 	std::clock_t last;
 	Grid gridP1, gridP2;
+	bool gridOccupied[GRID_WIDTH][GRID_HEIGHT];
+	std::vector<std::pair<int, int>> nonEmptyCells;
 };
 
 }; // namespace Templ8

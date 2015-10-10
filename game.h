@@ -31,15 +31,14 @@ class Tank
 {
 public:
 	enum { ACTIVE = 1, P1 = 2, P2 = 4 };
-	Tank() : pos(vec2(0, 0)), speed(vec2(0, 0)), target(vec2(0, 0)), reloading(0) {};
+	Tank() : /*pos(vec2(0, 0)), speed(vec2(0, 0)), target(vec2(0, 0)),*/ reloading(0) {};
 	~Tank();
 	void Fire(unsigned int party, vec2& pos, vec2& dir);
 	void Tick();
-	vec2 pos, speed, target;
+	//vec2 pos, speed, target, force;
 	float maxspeed;
 	int flags, reloading, index;
 	Smoke smoke;
-	vec2 peakForce, tankForce;
 	std::pair<int, int> cellPos;
 };
 
@@ -105,6 +104,28 @@ public:
 	float costable[720], sintable[720];
 	std::vector<std::pair<int, int>> nonEmptyCells;
 	bool nearMountainPeak[16][GRID_WIDTH][GRID_HEIGHT];
+
+	// SSE stuff
+
+	// tank position
+	union { float tankPosX[MAXP1 + MAXP2]; __m128 tankPosX4[(MAXP1 + MAXP2) / 4]; };
+	union { float tankPosY[MAXP1 + MAXP2]; __m128 tankPosY4[(MAXP1 + MAXP2) / 4]; };
+
+	// tank velocity
+	union { float tankVelX[MAXP1 + MAXP2]; __m128 tankVelX4[(MAXP1 + MAXP2) / 4]; };
+	union { float tankVelY[MAXP1 + MAXP2]; __m128 tankVelY4[(MAXP1 + MAXP2) / 4]; };
+
+	// tank target
+	union { float tankTarX[MAXP1 + MAXP2]; __m128 tankTarX4[(MAXP1 + MAXP2) / 4]; };
+	union { float tankTarY[MAXP1 + MAXP2]; __m128 tankTarY4[(MAXP1 + MAXP2) / 4]; };
+
+	// tank force
+	union { float tankForX[MAXP1 + MAXP2]; __m128 tankForX4[(MAXP1 + MAXP2) / 4]; };
+	union { float tankForY[MAXP1 + MAXP2]; __m128 tankForY4[(MAXP1 + MAXP2) / 4]; };
+
+	// tank cell position
+	union { int tankCelX[MAXP1 + MAXP2]; __m128i tankCelX4[(MAXP1 + MAXP2) / 4]; };
+	union { int tankCelY[MAXP1 + MAXP2]; __m128i tankCelY4[(MAXP1 + MAXP2) / 4]; };
 };
 
 }; // namespace Templ8

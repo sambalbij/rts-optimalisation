@@ -80,7 +80,7 @@ void Tank::Fire( unsigned int party, vec2& pos, vec2& dir )
 	{
 		bullet[i].flags |= Bullet::ACTIVE + party; // set owner, set active
 		bullet[i].pos = pos;
-		bullet[i].speed = speed;
+		bullet[i].speed = vec2(game->tankVelX[index], game->tankVelY[index]);
 		break;
 	}
 }
@@ -88,6 +88,9 @@ void Tank::Fire( unsigned int party, vec2& pos, vec2& dir )
 // Tank::Tick - update single tank
 void Tank::Tick()
 {
+	vec2 pos(game->tankPosX[index], game->tankPosY[index]);
+	vec2 target(game->tankTarX[index], game->tankTarY[index]);
+
 	if (!(flags & ACTIVE)) // dead tank
 	{
 		smoke.xpos = (int)pos.x;
@@ -95,17 +98,14 @@ void Tank::Tick()
 		return smoke.Tick();
 	}
 
-	vec2 force = normalize( target - pos );
+	vec2 force = normalize(target - pos);
 
-	// evade mountain peaks
-	force += peakForce;// game->EvadeMountainPeaks(this);
-
-	// evade other tanks
-	force += tankForce;
+	// apply external forces
+	force += vec2(game->tankForX[index], game->tankForY[index]);
 	force += game->grid.TankForces(this);
 
-	tankForce = vec2();
-	peakForce = vec2();
+	game->tankForX[index] = 0;
+	game->tankForY[index] = 0;
 
 	// evade user dragged line
 	if ((flags & P1) && (game->m_LButton))
@@ -113,10 +113,10 @@ void Tank::Tick()
 		float x1 = (float)game->m_DStartX, y1 = (float)game->m_DStartY;
 		float x2 = (float)game->m_MouseX, y2 = (float)game->m_MouseY;
 
-		vec2 N = normalize( vec2( y2 - y1, x1 - x2 ) );
-		float dist = dot( N, pos ) - dot( N, vec2( x1, y1 ) );
+		vec2 N = normalize(vec2(y2 - y1, x1 - x2));
+		float dist = dot(N, pos) - dot(N, vec2(x1, y1));
 
-		if (fabs( dist ) < 10)
+		if (fabs(dist) < 10)
 			if (dist > 0)
 				force += 20.0f * N;
 			else
@@ -124,9 +124,16 @@ void Tank::Tick()
 	}
 
 	// update speed using accumulated force
+	vec2 speed(game->tankVelX[index], game->tankVelY[index]);
 	speed += force;
 	speed = normalize(speed);
 	pos += speed * maxspeed * 0.5f;
+
+	game->tankVelX[index] = speed.x;
+	game->tankVelY[index] = speed.y;
+
+	game->tankPosX[index] = pos.x;
+	game->tankPosY[index] = pos.y;
 
 	cellPos = game->grid.GetIndices(pos);
 
@@ -184,22 +191,31 @@ void Game::Init()
 	for (unsigned int i = 0; i < MAXP1; i++)
 	{
 		Tank* t = m_Tank[i] = new Tank();
-		t->pos = vec2((float)((i % 5) * 20), (float)((i / 5) * 20 + 50));
-		t->target = vec2(SCRWIDTH, SCRHEIGHT); // initially move to bottom right corner
-		t->speed = vec2(0, 0), t->flags = Tank::ACTIVE | Tank::P1, t->maxspeed = (i < (MAXP1 / 2)) ? 0.65f : 0.45f;
-		t->cellPos = grid.GetIndices(t->pos);
+		tankPosX[i] = (float)((i % 5) * 20);
+		tankPosY[i] = (float)((i / 5) * 20 + 50);
+		tankTarX[i] = SCRWIDTH; // initially move to bottom right corner
+		tankTarY[i] = SCRHEIGHT;
+		tankVelX[i] = 0;
+		tankVelY[i] = 0;
+		t->flags = Tank::ACTIVE | Tank::P1, t->maxspeed = (i < (MAXP1 / 2)) ? 0.65f : 0.45f;
+		t->cellPos = grid.GetIndices(vec2(tankPosX[i], tankPosY[i]));
 		t->index = i;
 	}
 
 	// create red tanks
 	for (unsigned int i = 0; i < MAXP2; i++)
 	{
-		Tank* t = m_Tank[i + MAXP1] = new Tank();
-		t->pos = vec2((float)((i % 12) * 20 + 900), (float)((i / 12) * 20 + 600));
-		t->target = vec2(424, 336); // move to player base
-		t->speed = vec2(0, 0), t->flags = Tank::ACTIVE | Tank::P2, t->maxspeed = 0.3f;
-		t->cellPos = grid.GetIndices(t->pos);
-		t->index = MAXP1 + i;
+		int k = i + MAXP1;
+		Tank* t = m_Tank[k] = new Tank();
+		tankPosX[k] = (float)((i % 12) * 20 + 900);
+		tankPosY[k] = (float)((i / 12) * 20 + 600);
+		tankTarX[k] = 424; // move to player base
+		tankTarY[k] = 336;
+		tankVelX[k] = 0;
+		tankVelY[k] = 0;
+		t->flags = Tank::ACTIVE | Tank::P2, t->maxspeed = 0.3f;
+		t->cellPos = grid.GetIndices(vec2(tankPosX[k], tankPosY[k]));
+		t->index = k;
 	}
 
 	UpdateGrid();
@@ -246,17 +262,19 @@ void Game::DrawTanks()
 			for (int k : cell)
 			{
 				Tank* t = m_Tank[k];
+				vec2 tpos(game->tankPosX[t->index], game->tankPosY[t->index]);
+				vec2 tspeed(game->tankVelX[t->index], game->tankVelY[t->index]);
 
-				float x = t->pos.x, y = t->pos.y;
-				vec2 p1(x + 70 * t->speed.x + 22 * t->speed.y, y + 70 * t->speed.y - 22 * t->speed.x);
-				vec2 p2(x + 70 * t->speed.x - 22 * t->speed.y, y + 70 * t->speed.y + 22 * t->speed.x);
+				float x = tpos.x, y = tpos.y;
+				vec2 p1(x + 70 * tspeed.x + 22 * tspeed.y, y + 70 * tspeed.y - 22 * tspeed.x);
+				vec2 p2(x + 70 * tspeed.x - 22 * tspeed.y, y + 70 * tspeed.y + 22 * tspeed.x);
 
 				if (!(t->flags & Tank::ACTIVE))
 					m_PXSprite->Draw((int)x - 4, (int)y - 4, m_Surface); // draw dead tank
 				else // draw blue tank
 				{
 					m_P1Sprite->Draw((int)x - 4, (int)y - 4, m_Surface);
-					m_Surface->Line(x, y, x + 8 * t->speed.x, y + 8 * t->speed.y, 0x4444ff);
+					m_Surface->Line(x, y, x + 8 * tspeed.x, y + 8 * tspeed.y, 0x4444ff);
 				}
 
 				if ((x >= 0) && (x < SCRWIDTH) && (y >= 0) && (y < SCRHEIGHT))
@@ -274,17 +292,19 @@ void Game::DrawTanks()
 			for (int k : cell)
 			{
 				Tank* t = m_Tank[k];
+				vec2 tpos(game->tankPosX[t->index], game->tankPosY[t->index]);
+				vec2 tspeed(game->tankVelX[t->index], game->tankVelY[t->index]);
 
-				float x = t->pos.x, y = t->pos.y;
-				vec2 p1(x + 70 * t->speed.x + 22 * t->speed.y, y + 70 * t->speed.y - 22 * t->speed.x);
-				vec2 p2(x + 70 * t->speed.x - 22 * t->speed.y, y + 70 * t->speed.y + 22 * t->speed.x);
+				float x = tpos.x, y = tpos.y;
+				vec2 p1(x + 70 * tspeed.x + 22 * tspeed.y, y + 70 * tspeed.y - 22 * tspeed.x);
+				vec2 p2(x + 70 * tspeed.x - 22 * tspeed.y, y + 70 * tspeed.y + 22 * tspeed.x);
 
 				if (!(t->flags & Tank::ACTIVE))
 					m_PXSprite->Draw((int)x - 4, (int)y - 4, m_Surface); // draw dead tank
 				else // draw red tank
 				{
 					m_P2Sprite->Draw((int)x - 4, (int)y - 4, m_Surface);
-					m_Surface->Line(x, y, x + 8 * t->speed.x, y + 8 * t->speed.y, 0xff4444);
+					m_Surface->Line(x, y, x + 8 * tspeed.x, y + 8 * tspeed.y, 0xff4444);
 				}
 
 				if ((x >= 0) && (x < SCRWIDTH) && (y >= 0) && (y < SCRHEIGHT))
@@ -313,8 +333,11 @@ void Game::PlayerInput()
 	else
 	{
 		if ((m_PrevButton) && (m_DFrames < 15)) // new target location
-			for ( unsigned int i = 0; i < MAXP1; i++ )
-				m_Tank[i]->target = vec2( (float)m_MouseX, (float)m_MouseY );
+			for (unsigned int i = 0; i < MAXP1; i++)
+			{
+				tankTarX[i] = (float)m_MouseX;
+				tankTarY[i] = (float)m_MouseY;
+			}
 
 		m_Surface->Line( 0, (float)m_MouseY, SCRWIDTH - 1, (float)m_MouseY, 0xffffff );
 		m_Surface->Line( (float)m_MouseX, 0, (float)m_MouseX, SCRHEIGHT - 1, 0xffffff );
@@ -417,12 +440,16 @@ void Game::EvadeMountainPeaks()
 			for (int k : cell)
 			{
 				Tank* current = m_Tank[k];
+				vec2 tpos(game->tankPosX[current->index], game->tankPosY[current->index]);
 
-				vec2 d(current->pos.x - peakx[i], current->pos.y - peaky[i]);
+				vec2 d(tpos.x - peakx[i], tpos.y - peaky[i]);
 				float sd = (d.x * d.x + d.y * d.y);// *0.2f;
 				if (sd < 7500)//1500)*5
 				{
-					current->peakForce += d*0.15f*(peakh[i] / sd);//force += d * 0.03f * (peakh[i] / sd);
+					d *= 0.15f * (peakh[i] / sd);//force += d * 0.03f * (peakh[i] / sd);
+					game->tankForX[current->index] += d.x;
+					game->tankForY[current->index] += d.y;
+
 					float r = sqrtf(sd*0.2);
 					for (int j = 0; j < 720; j++)
 					{
@@ -474,6 +501,7 @@ std::pair<int, int> SmallGrid::GetIndices(vec2 pos) const
 vec2 SmallGrid::TankForces(Tank* tank)
 {
 	vec2 result;
+	vec2 pos(game->tankPosX[tank->index], game->tankPosY[tank->index]);
 
 	std::pair<int, int> ind = tank->cellPos;
 	int x = ind.first, y = ind.second; // our tank's cell
@@ -487,15 +515,17 @@ vec2 SmallGrid::TankForces(Tank* tank)
 					continue;
 
 				Tank* current = game->m_Tank[k];
+				vec2 tpos(game->tankPosX[current->index], game->tankPosY[current->index]);
 
-				vec2 d = tank->pos - current->pos; // distance
+				vec2 d = pos - tpos; // distance
 				float length2 = d.x * d.x + d.y * d.y; // squared length
 				if (length2 < 256) // 16 * 16
 				{
 					float mul = length2 < 64 ? 2.0f : 0.4f;	// force factor based on distance
 					d *= (mul / sqrtf(length2));
 					result += d; // apply force to tank
-					current->tankForce -= d; // apply symmetric force to other tank
+					game->tankForX[current->index] -= d.x; // apply symmetric force to other tank
+					game->tankForY[current->index] -= d.y;
 				}
 			}
 		}
@@ -510,13 +540,14 @@ Tank* SmallGrid::BulletCollision(vec2 pos, int team)
 	for (int k : cell) // check own cell first
 	{
 		Tank* tank = game->m_Tank[k];
+		vec2 tpos(game->tankPosX[tank->index], game->tankPosY[tank->index]);
 
 		if (tank->flags & Tank::ACTIVE &&
 			tank->flags & team &&
-			pos.x > tank->pos.x - 2 &&
-			pos.y > tank->pos.y - 2 &&
-			pos.x < tank->pos.x + 2 &&
-			pos.y < tank->pos.y + 2)
+			pos.x > tpos.x - 2 &&
+			pos.y > tpos.y - 2 &&
+			pos.x < tpos.x + 2 &&
+			pos.y < tpos.y + 2)
 			return tank;
 	}
 
@@ -539,13 +570,14 @@ Tank* SmallGrid::BulletCollision(vec2 pos, int team)
 			for (int k : cell)
 			{
 				Tank* tank = game->m_Tank[k];
+				vec2 tpos(game->tankPosX[tank->index], game->tankPosY[tank->index]);
 
 				if (tank->flags & Tank::ACTIVE &&
 					tank->flags & team &&
-					pos.x > tank->pos.x - 2 &&
-					pos.y > tank->pos.y - 2 &&
-					pos.x < tank->pos.x + 2 &&
-					pos.y < tank->pos.y + 2)
+					pos.x > tpos.x - 2 &&
+					pos.y > tpos.y - 2 &&
+					pos.x < tpos.x + 2 &&
+					pos.y < tpos.y + 2)
 					return tank;
 			}
 		}
@@ -570,8 +602,8 @@ Tank* LargeGrid::FindTarget(Tank* source)
 {
 	const float r2 = 100 * 100;
 	std::pair<int, int> indices = source->cellPos;
-	vec2 dir = source->speed;
-	vec2 pos = source->pos;
+	vec2 dir(game->tankTarX[source->index], game->tankTarY[source->index]);
+	vec2 pos(game->tankPosX[source->index], game->tankPosY[source->index]);
 	int x = indices.first >> 3;
 	int y = indices.second >> 3;
 
@@ -591,7 +623,9 @@ Tank* LargeGrid::FindTarget(Tank* source)
 
 				if (tank->flags & Tank::ACTIVE) // only active tanks
 				{
-					vec2 diff = tank->pos - pos;
+					vec2 tpos(game->tankPosX[tank->index], game->tankPosY[tank->index]);
+
+					vec2 diff = tpos - pos;
 					float dist2 = dot(diff, diff);
 					if (dist2 < r2) // squared distance check
 					{

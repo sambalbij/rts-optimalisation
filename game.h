@@ -13,7 +13,8 @@ namespace Tmpl8 {
 #define GRID_HEIGHT				((MAXP1 / 4) + 10)
 #define GRID_CELL_SIZE_SMALL	16			// the size of each cell, in pixels
 #define GRID_CELL_SIZE_LARGE	128	
-#define MAX_CELL_COUNT			64
+#define MAX_CELL_COUNT_SMALL	16
+#define MAX_CELL_COUNT_LARGE	256
 
 class Grid;
 class Smoke
@@ -56,7 +57,8 @@ public:
 class SmallGrid
 {
 public:
-	std::vector<int> cells[GRID_WIDTH][GRID_HEIGHT];
+	int cells[GRID_WIDTH][GRID_HEIGHT][MAX_CELL_COUNT_SMALL];
+	int cellCounts[GRID_WIDTH][GRID_HEIGHT];
 	
 	SmallGrid();
 	std::pair<int, int> GetIndices(vec2 pos) const;
@@ -67,7 +69,8 @@ public:
 class LargeGrid
 {
 public:
-	std::vector<int> cells[GRID_WIDTH / 8][GRID_HEIGHT / 8];
+	int cells[GRID_WIDTH / 8][GRID_HEIGHT / 8][MAX_CELL_COUNT_LARGE];
+	int cellCounts[GRID_WIDTH / 8][GRID_HEIGHT / 8];
 
 	LargeGrid();
 	std::pair<int, int> GetIndices(vec2 pos) const;

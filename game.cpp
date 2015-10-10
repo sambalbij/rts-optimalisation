@@ -237,10 +237,11 @@ void Game::DrawTanks()
 	{
 		for (int xi = 0; xi <= SCRWIDTH / GRID_CELL_SIZE_LARGE; ++xi)
 		{
-			std::vector<int>& cell = aimP2.cells[xi][yi];
-			for (int k : cell)
+			int* cell = aimP2.cells[xi][yi];
+			int count = aimP2.cellCounts[xi][yi];
+			for (int k = 0; k < count; k++)
 			{
-				Tank* t = m_Tank[k];
+				Tank* t = m_Tank[cell[k]];
 
 				float x = t->pos.x, y = t->pos.y;
 				vec2 p1(x + 70 * t->speed.x + 22 * t->speed.y, y + 70 * t->speed.y - 22 * t->speed.x);
@@ -265,10 +266,11 @@ void Game::DrawTanks()
 	{
 		for (int xi = 0; xi <= SCRWIDTH / GRID_CELL_SIZE_LARGE; ++xi)
 		{
-			std::vector<int>& cell = aimP1.cells[xi][yi];
-			for (int k : cell)
+			int* cell = aimP1.cells[xi][yi];
+			int count = aimP1.cellCounts[xi][yi];
+			for (int k = 0; k < count; k++)
 			{
-				Tank* t = m_Tank[k];
+				Tank* t = m_Tank[cell[k]];
 
 				float x = t->pos.x, y = t->pos.y;
 				vec2 p1(x + 70 * t->speed.x + 22 * t->speed.y, y + 70 * t->speed.y - 22 * t->speed.x);
@@ -368,9 +370,9 @@ void Game::ClearGrid()
 	for (const std::pair<int, int>& ind : nonEmptyCells) // clear the grids
 	{
 		int x = ind.first, y = ind.second;
-		grid.cells[x][y].clear();
-		aimP1.cells[x >> 3][y >> 3].clear(); // we can do this because the large grids are
-		aimP2.cells[x >> 3][y >> 3].clear(); // exactly 8 times larger than the small grid
+		grid.cellCounts[x][y] = 0;
+		aimP1.cellCounts[x >> 3][y >> 3] = 0; // we can do this because the large grids are
+		aimP2.cellCounts[x >> 3][y >> 3] = 0; // exactly 8 times larger than the small grid
 	}
 
 	nonEmptyCells.clear();
@@ -387,13 +389,21 @@ void Game::UpdateGrid()
 		std::pair<int, int> ind = tank->cellPos;
 
 		int x = ind.first, y = ind.second;
-		if (grid.cells[x][y].empty())
+		int& c1 = grid.cellCounts[x][y];
+		if (c1 == 0)
 			nonEmptyCells.push_back(ind);
-		grid.cells[x][y].push_back(i);
+		grid.cells[x][y][c1++] = i;
+
+		if (c1 > MAX_CELL_COUNT_SMALL)
+			cout << "Small overflow!" << endl;
 
 		// add to large grid
 		LargeGrid& lg = tank->flags & Tank::P1 ? aimP2 : aimP1;
-		lg.cells[x >> 3][y >> 3].push_back(i);
+		int& c2 = lg.cellCounts[x >> 3][y >> 3];
+		lg.cells[x >> 3][y >> 3][c2++] = i;
+
+		if (c2 > MAX_CELL_COUNT_LARGE)
+			cout << "Large overflow!" << endl;
 	}
 }
 
@@ -408,16 +418,17 @@ void Game::EvadeMountainPeaks()
 		int maxy = MIN(GRID_HEIGHT, indices.second + 6);
 		for (int x = minx; x <= maxx; ++x) for (int y = miny; y <= maxy; ++y)
 		{
-			std::vector<int>& cell = grid.cells[x][y];
-			for (int k : cell)
+			int* cell = grid.cells[x][y];
+			int count = grid.cellCounts[x][y];
+			for (int k = 0; k < count; k++)
 			{
-				Tank* current = m_Tank[k];
+				Tank* tank = m_Tank[cell[k]];
 
-				vec2 d(current->pos.x - peakx[i], current->pos.y - peaky[i]);
+				vec2 d(tank->pos.x - peakx[i], tank->pos.y - peaky[i]);
 				float sd = (d.x * d.x + d.y * d.y);// *0.2f;
 				if (sd < 7500)//1500)*5
 				{
-					current->peakForce += d*0.15f*(peakh[i] / sd);//force += d * 0.03f * (peakh[i] / sd);
+					tank->peakForce += d*0.15f*(peakh[i] / sd);//force += d * 0.03f * (peakh[i] / sd);
 					float r = sqrtf(sd*0.2);
 					for (int j = 0; j < 720; j++)
 					{
@@ -455,9 +466,7 @@ void Game::EvadeMountainPeaks()
 
 SmallGrid::SmallGrid()
 {
-	for (int j = 0; j < GRID_HEIGHT; j++)
-		for (int i = 0; i < GRID_WIDTH; i++)
-			cells[i][j] = std::vector<int>();
+	memset(cellCounts, 0, GRID_WIDTH * GRID_HEIGHT * 4);
 }
 
 std::pair<int, int> SmallGrid::GetIndices(vec2 pos) const
@@ -475,10 +484,11 @@ vec2 SmallGrid::TankForces(Tank* tank)
 	for (int j = MAX(0, y - 1); j <= MIN(GRID_HEIGHT - 1, y + 1); j++) // look in neighbouring cells as well
 		for (int i = MAX(0, x - 1); i <= MIN(GRID_WIDTH - 1, x + 1); i++)
 		{
-			std::vector<int>& cell = cells[i][j];
-			for (int k : cell) // loop over all tanks in cell
+			int* cell = cells[i][j];
+			int count = cellCounts[i][j];
+			for (int k = 0; k < count; k++) // loop over all tanks in a cell
 			{
-				Tank* current = game->m_Tank[k];
+				Tank* current = game->m_Tank[cell[k]];
 				if (current == tank) // we don't want our tank
 					continue;
 
@@ -498,10 +508,11 @@ vec2 SmallGrid::TankForces(Tank* tank)
 Tank* SmallGrid::BulletCollision(vec2 pos, int team)
 {
 	std::pair<int, int> indices = GetIndices(pos);
-	std::vector<int>& cell = cells[indices.first][indices.second];
-	for (int k : cell) // check own cell first
+	int* cell = cells[indices.first][indices.second];
+	int count = cellCounts[indices.first][indices.second];
+	for (int k = 0; k < count; k++) // check own cell first
 	{
-		Tank* tank = game->m_Tank[k];
+		Tank* tank = game->m_Tank[cell[k]];
 
 		if (tank->flags & Tank::ACTIVE &&
 			tank->flags & team &&
@@ -527,10 +538,11 @@ Tank* SmallGrid::BulletCollision(vec2 pos, int team)
 			if (i == 0 && j == 0)
 				continue;
 
-			std::vector<int>& cell2 = cells[x][y];
-			for (int k : cell)
+			cell = cells[x][y];
+			count = cellCounts[x][y];
+			for (int k = 0; k < count; k++)
 			{
-				Tank* tank = game->m_Tank[k];
+				Tank* tank = game->m_Tank[cell[k]];
 
 				if (tank->flags & Tank::ACTIVE &&
 					tank->flags & team &&
@@ -548,9 +560,7 @@ Tank* SmallGrid::BulletCollision(vec2 pos, int team)
 
 LargeGrid::LargeGrid()
 {
-	for (int j = 0; j < GRID_HEIGHT / 8; j++)
-		for (int i = 0; i < GRID_WIDTH / 8; i++)
-			cells[i][j] = std::vector<int>();
+	memset(cellCounts, 0, (GRID_WIDTH / 8) * (GRID_HEIGHT / 8) * 4);
 }
 
 std::pair<int, int> LargeGrid::GetIndices(vec2 pos) const
@@ -576,10 +586,11 @@ Tank* LargeGrid::FindTarget(Tank* source)
 	for (int y = minY; y <= maxY; y++)
 		for (int x = minX; x <= maxX; x++)
 		{
-			std::vector<int>& cell = cells[x][y];
-			for (int k : cell) // all tanks in cell
+			int* cell = cells[x][y];
+			int count = cellCounts[x][y];
+			for (int k = 0; k < count; k++) // all tanks in cell
 			{
-				Tank* tank = game->m_Tank[k];
+				Tank* tank = game->m_Tank[cell[k]];
 
 				if (tank->flags & Tank::ACTIVE) // only active tanks
 				{

@@ -125,7 +125,8 @@ void Tank::Tick()
 
 	vec2 force = normalize( target - pos );
 	// evade mountain peaks
-	force += game->EvadeMountainPeaks(this);
+	force += PeakForce;// game->EvadeMountainPeaks(this);
+	PeakForce = vec2();
 
 	// evade P1 tanks
 	//force += game->gridP1.TankForces(this);
@@ -278,7 +279,7 @@ void Game::Init()
 		Tank* t = m_Tank[i] = new Tank();
 		t->pos = vec2( (float)((i % 5) * 20), (float)((i / 5) * 20 + 50) );
 		t->target = vec2( SCRWIDTH, SCRHEIGHT ); // initially move to bottom right corner
-		t->speed = vec2( 0, 0 ), t->flags = Tank::ACTIVE | Tank::P1, t->maxspeed = (i < (MAXP1 / 2)) ? 4.65f : 4.45f;
+		t->speed = vec2( 0, 0 ), t->flags = Tank::ACTIVE | Tank::P1, t->maxspeed = (i < (MAXP1 / 2)) ? 0.65f : 0.45f;
 		t->gridCell[0] = initgridcell, t->gridCell[1] = initgridcell;
 		//t->UpdateGrid();
 	}
@@ -326,6 +327,7 @@ void Game::Init()
 		sintable[j] = sinf((float)j * PI / 360.0f);
 		costable[j] = cosf((float)j * PI / 360.0f);
 	}
+	EvadeMountainPeaks();
 }
 
 // Game::DrawTanks - draw the tanks
@@ -440,6 +442,7 @@ void Game::Tick( float a_DT )
 
 	nonEmptyCells.clear();
 	UpdateGrid();
+	EvadeMountainPeaks();
 
 	for ( unsigned int i = 0; i < MAXBULLET; i++ )
 		bullet[i].Tick();
@@ -531,9 +534,39 @@ void Game::UpdateGrid()
 	}
 }
 
-vec2 Game::EvadeMountainPeaks(Tank*t)
+void Game::EvadeMountainPeaks()
 {
-	vec2 force;
+	for (unsigned int i = 0; i < 16; ++i)
+	{
+		std::pair<int, int> indices = gridP1.GetIndices(vec2(peakx[i], peaky[i]), 0);
+		int minx = MAX(0, indices.first - 6); // 6 * 16 < sqrt(7500) < 87
+		int maxx = MIN(GRID_WIDTH, indices.first + 6);
+		int miny = MAX(0, indices.second - 6);
+		int maxy = MIN(GRID_HEIGHT, indices.second + 6);
+		for (int x = minx; x <= maxx; ++x) for (int y = miny; y <= maxy; ++y)
+		{
+			Tank* current = gridP1.smallCells[x][y];
+			while (current!=nullptr)
+			{
+				vec2 d(current->pos.x - peakx[i], current->pos.y - peaky[i]);
+				float sd = (d.x * d.x + d.y * d.y);// *0.2f;
+				if (sd < 7500)//1500)*5
+				{
+					current->PeakForce += d*0.15f*(peakh[i] / sd);//force += d * 0.03f * (peakh[i] / sd);
+					float r = sqrtf(sd*0.2);
+					for (int j = 0; j < 720; j++)
+					{
+						float x = peakx[i] + r * sintable[j];
+						float y = peaky[i] + r * costable[j];
+						game->m_Surface->AddPlot((int)x, (int)y, 0x000500);
+					}
+				}
+				current = current->next[0];
+			} // end while loop
+
+		} // end loop over nearby gridcells
+	} // end loop over peaks
+	/*vec2 force;
 	for (unsigned int i = 0; i < 16; i++)
 	{
 		if (!nearMountainPeak[i][t->gridCell[0].first][t->gridCell[0].second])
@@ -552,5 +585,5 @@ vec2 Game::EvadeMountainPeaks(Tank*t)
 			}
 		}
 	}
-	return force;
+	return force;*/
 }

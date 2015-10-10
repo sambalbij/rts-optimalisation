@@ -6,7 +6,7 @@
 
 namespace Tmpl8 {
 
-#define MAXP1			1			// increase to test your optimized code
+#define MAXP1			20000			// increase to test your optimized code
 #define MAXP2			(4 * MAXP1)	// because the player is smarter than the AI
 #define MAXBULLET		200000
 #define GRID_WIDTH		128			// the number of cells
@@ -44,6 +44,7 @@ public:
 	Tank* next[2];
 	std::pair<int, int> gridCell[2];
 	vec2 forces;
+	vec2 PeakForce;
 };
 
 class Bullet
@@ -269,7 +270,7 @@ class Sprite;
 class Game
 {
 public:
-	vec2 EvadeMountainPeaks(Tank* t);
+	void EvadeMountainPeaks();
 	void SetTarget(Surface* a_Surface) { m_Surface = a_Surface; }
 	void MouseMove(int x, int y) { m_MouseX = x; m_MouseY = y; }
 	void MouseButton(bool b) { m_LButton = b; }

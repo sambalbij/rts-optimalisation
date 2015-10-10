@@ -99,10 +99,13 @@ void Tank::Tick()
 
 	// evade mountain peaks
 	force += peakForce;// game->EvadeMountainPeaks(this);
-	peakForce = vec2();
 
 	// evade other tanks
+	force += tankForce;
 	force += game->grid.TankForces(this);
+
+	tankForce = vec2();
+	peakForce = vec2();
 
 	// evade user dragged line
 	if ((flags & P1) && (game->m_LButton))
@@ -185,6 +188,7 @@ void Game::Init()
 		t->target = vec2(SCRWIDTH, SCRHEIGHT); // initially move to bottom right corner
 		t->speed = vec2(0, 0), t->flags = Tank::ACTIVE | Tank::P1, t->maxspeed = (i < (MAXP1 / 2)) ? 0.65f : 0.45f;
 		t->cellPos = grid.GetIndices(t->pos);
+		t->index = i;
 	}
 
 	// create red tanks
@@ -195,6 +199,7 @@ void Game::Init()
 		t->target = vec2(424, 336); // move to player base
 		t->speed = vec2(0, 0), t->flags = Tank::ACTIVE | Tank::P2, t->maxspeed = 0.3f;
 		t->cellPos = grid.GetIndices(t->pos);
+		t->index = MAXP1 + i;
 	}
 
 	UpdateGrid();
@@ -478,16 +483,19 @@ vec2 SmallGrid::TankForces(Tank* tank)
 			std::vector<int>& cell = cells[i][j];
 			for (int k : cell) // loop over all tanks in cell
 			{
-				Tank* current = game->m_Tank[k];
-				if (current == tank) // we don't want our tank
+				if (k <= tank->index) // we don't want our tank or those already processed
 					continue;
+
+				Tank* current = game->m_Tank[k];
 
 				vec2 d = tank->pos - current->pos; // distance
 				float length2 = d.x * d.x + d.y * d.y; // squared length
 				if (length2 < 256) // 16 * 16
 				{
 					float mul = length2 < 64 ? 2.0f : 0.4f;	// force factor based on distance
-					result += d * (mul / sqrtf(length2));	// the force vector
+					d *= (mul / sqrtf(length2));
+					result += d; // apply force to tank
+					current->tankForce -= d; // apply symmetric force to other tank
 				}
 			}
 		}

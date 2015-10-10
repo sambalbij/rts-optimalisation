@@ -37,9 +37,9 @@ public:
 	void Tick();
 	vec2 pos, speed, target;
 	float maxspeed;
-	int flags, reloading;
+	int flags, reloading, index;
 	Smoke smoke;
-	vec2 peakForce;
+	vec2 peakForce, tankForce;
 	std::pair<int, int> cellPos;
 };
 

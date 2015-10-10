@@ -6,13 +6,14 @@
 
 namespace Tmpl8 {
 
-#define MAXP1			20000			// increase to test your optimized code
-#define MAXP2			(4 * MAXP1)	// because the player is smarter than the AI
-#define MAXBULLET		200000
-#define GRID_WIDTH		128			// the number of cells
-#define GRID_HEIGHT		5000
-#define GRID_CELL_SIZE	16			// the size of each cell, in pixels
-#define GRID_CELL_SIZE2	128	
+#define MAXP1					40000		// increase to test your optimized code
+#define MAXP2					(4 * MAXP1)	// because the player is smarter than the AI
+#define MAXBULLET				200
+#define GRID_WIDTH				128			// the number of cells
+#define GRID_HEIGHT				((MAXP1 / 4) + 10)
+#define GRID_CELL_SIZE_SMALL	16			// the size of each cell, in pixels
+#define GRID_CELL_SIZE_LARGE	128	
+#define MAX_CELL_COUNT			64
 
 class Grid;
 class Smoke
@@ -30,21 +31,16 @@ class Tank
 {
 public:
 	enum { ACTIVE = 1, P1 = 2, P2 = 4 };
-	Tank() : pos(vec2(0, 0)), speed(vec2(0, 0)), target(vec2(0, 0)), reloading(0), forces(vec2(0, 0)), prev(), next() {};
+	Tank() : pos(vec2(0, 0)), speed(vec2(0, 0)), target(vec2(0, 0)), reloading(0) {};
 	~Tank();
 	void Fire(unsigned int party, vec2& pos, vec2& dir);
 	void Tick();
-	void UpdateGridSmall(std::pair<int,int> ind, Grid& grid, Tank* cell);
-	void UpdateGridLarge(std::pair<int, int> ind, Grid& grid, Tank* cell);
 	vec2 pos, speed, target;
 	float maxspeed;
 	int flags, reloading;
 	Smoke smoke;
-	Tank* prev[2];
-	Tank* next[2];
-	std::pair<int, int> gridCell[2];
-	vec2 forces;
-	vec2 PeakForce;
+	vec2 peakForce;
+	std::pair<int, int> cellPos;
 };
 
 class Bullet
@@ -57,211 +53,25 @@ public:
 	int flags;
 };
 
-const int GRID_CELL_SIZES[] = { 16, 128 };
-class Grid
+class SmallGrid
 {
 public:
-
-	Tank* smallCells[GRID_WIDTH][GRID_HEIGHT];
-	Tank* largeCells[GRID_WIDTH / 6][GRID_HEIGHT / 6];
+	std::vector<int> cells[GRID_WIDTH][GRID_HEIGHT];
 	
-	Grid()
-	{
-		for (int j = 0; j < GRID_HEIGHT; j++)
-			for (int i = 0; i < GRID_WIDTH; i++)
-				smallCells[i][j] = nullptr;
+	SmallGrid();
+	std::pair<int, int> GetIndices(vec2 pos) const;
+	vec2 TankForces(Tank* tank);
+	Tank* BulletCollision(vec2 pos, int team);
+};
 
-		for (int j = 0; j < GRID_HEIGHT / 6; j++)
-			for (int i = 0; i < GRID_WIDTH / 6; i++)
-				largeCells[i][j] = nullptr;
-	}
+class LargeGrid
+{
+public:
+	std::vector<int> cells[GRID_WIDTH / 8][GRID_HEIGHT / 8];
 
-	std::pair<int, int> GetIndices(vec2 pos, int i = 0) const
-	{
-		return std::pair<int, int>((int)(pos.x / GRID_CELL_SIZES[i]), (int)(pos.y / GRID_CELL_SIZES[i]));
-	}
-
-	void TankForces(int x, int y, Tank* foreign) const
-	{
-		Tank* start = smallCells[x][y];
-
-		for (int j = MAX(0, y - 1); j < MIN(GRID_HEIGHT, y + 1); j++)	// look in neighbouring cells up and left
-			for (int i = MAX(0, x - 1); i < MIN(GRID_WIDTH, x + 1); i++)// exploiting symmetry of forces
-			{
-				// calculate forces for all pairs of tanks in cell
-				Tank* other = smallCells[i][j];
-				while (other != nullptr)
-				{
-					Tank* own = start;
-					while (own != nullptr)
-					{
-						if (other == own) // tanks don't push themselves
-						{
-							own = own->next[0];
-							continue;
-						}
-
-						vec2 d = other->pos - own->pos; // distance
-						float length2 = d.x * d.x + d.y * d.y; // squared length
-						if (length2 < 256) // 16 * 16
-						{
-							float mul = length2 < 64 ? 2.0f : 0.4f;	// force factor based on distance
-							vec2 f = d * (mul / sqrtf(length2));	// the force vector
-							own->forces -= f; // symmetric forces
-							other->forces += f;
-						}
-
-						own = own->next[0];
-					}
-
-					own = foreign; // check against other player's grid
-					while (own != nullptr)
-					{
-						if (other == own) // tanks don't push themselves
-						{
-							own = own->next[0];
-							continue;
-						}
-
-						vec2 d = other->pos - own->pos; // distance
-						float length2 = d.x * d.x + d.y * d.y; // squared length
-						if (length2 < 256) // 16 * 16
-						{
-							float mul = length2 < 64 ? 2.0f : 0.4f;	// force factor based on distance
-							vec2 f = d * (mul / sqrtf(length2));	// the force vector
-							own->forces -= f; // symmetric forces
-							other->forces += f;
-						}
-
-						own = own->next[0];
-					}
-
-					other = other->next[0];
-				}
-			}
-	}
-
-	// returns total accumulated tank forces
-	vec2 TankForces(Tank* tank)
-	{
-		vec2 result;
-
-		int x = tank->gridCell[0].first, y = tank->gridCell[0].second; // our tank's cell
-		for (int j = MAX(0, y - 1); j <= MIN(GRID_HEIGHT - 1, y + 1); j++) // look in neighbouring cells as well
-			for (int i = MAX(0, x - 1); i <= MIN(GRID_WIDTH - 1, x + 1); i++)
-			{
-				Tank* current = smallCells[i][j];
-				while (current != nullptr) // loop over all tanks in cell
-				{
-					if (current == tank) // we don't want our tank
-					{
-						current = current->next[0];
-						continue;
-					}
-
-					vec2 d = tank->pos - current->pos; // distance
-					float length2 = d.x * d.x + d.y * d.y; // squared length
-					if (length2 < 256) // 16 * 16
-					{
-						float mul = length2 < 64 ? 2.0f : 0.4f;	// force factor based on distance
-						result += d * (mul / sqrtf(length2));	// the force vector
-					}
-
-					current = current->next[0];
-				}
-			}
-
-		return result;
-	}
-
-	Tank* BulletCollision(vec2 pos)
-	{
-		std::pair<int, int> indices = GetIndices(pos);
-		Tank* tank = smallCells[indices.first][indices.second];
-
-		while (tank != nullptr) // check own cell first
-		{
-			if (tank->flags & Tank::ACTIVE &&
-				pos.x > tank->pos.x - 2 &&
-				pos.y > tank->pos.y - 2 &&
-				pos.x < tank->pos.x + 2 &&
-				pos.y < tank->pos.y + 2)
-				return tank;
-
-			tank = tank->next[0];
-		}
-
-		for (int j = -1; j <= 1; j++) // look in neighbouring cells as well
-		{
-			int y = indices.second + j;
-			if (y < 0 || y >= GRID_HEIGHT)
-				continue;
-
-			for (int i = -1; i <= 1; i++)
-			{
-				int x = indices.first + i;
-				if (x < 0 || x >= GRID_WIDTH)
-					continue;
-
-				if (i == 0 && j == 0)
-					continue;
-
-				tank = smallCells[x][y];
-				while (tank != nullptr)
-				{
-					if (tank->flags & Tank::ACTIVE &&
-						pos.x > tank->pos.x - 2 &&
-						pos.y > tank->pos.y - 2 &&
-						pos.x < tank->pos.x + 2 &&
-						pos.y < tank->pos.y + 2)
-						return tank;
-
-					tank = tank->next[0];
-				}
-			}
-		}
-		return nullptr;
-	}
-
-	Tank* FindTarget(vec2 pos, vec2 dir)
-	{
-		const float r2 = 100 * 100;
-		std::pair<int, int> indices = GetIndices(pos, 1);
-
-		const int n = 1; // ceil(100 / GRID_CELL_SIZE)
-		int minX = MAX(0, MIN(indices.first, indices.first + (dir.x < 0 ? -n : n))); // smallest x of cell to check
-		int maxX = MIN(GRID_WIDTH - 1, MAX(indices.first, indices.first + (dir.x < 0 ? -n : n))); // largest x
-		int minY = MAX(0, MIN(indices.second, indices.second + (dir.y < 0 ? -n : n)));
-		int maxY = MIN(GRID_HEIGHT - 1, MAX(indices.second, indices.second + (dir.y < 0 ? -n : n)));
-
-		for (int y = minY; y <= maxY; y++)
-			for (int x = minX; x <= maxX; x++)
-			{
-				Tank* tank = largeCells[x][y];
-				while (tank != nullptr) // all tanks in cell
-				{
-					if (tank->flags & Tank::ACTIVE) // only active tanks
-					{
-						vec2 diff = tank->pos - pos;
-						float dist2 = dot(diff, diff);
-						if (dist2 < r2) // squared distance check
-						{
-							float dist = sqrtf(dist2);
-							if (dist < 100) // distance check
-							{
-								diff /= dist;
-								if (dot(diff, dir) > 0.99999f) // direction check
-									return tank; // all conditions met!
-							}
-						}
-					}
-
-					tank = tank->next[1];
-				}
-			}
-
-		return nullptr;
-	}
+	LargeGrid();
+	std::pair<int, int> GetIndices(vec2 pos) const;
+	Tank* FindTarget(Tank* source);
 };
 
 class Surface;
@@ -279,6 +89,7 @@ public:
 	void UpdateTanks();
 	void UpdateGrid();
 	void UpdateBullets();
+	void ClearGrid();
 	void DrawTanks();
 	void PlayerInput();
 	void Tick(float a_DT);
@@ -289,9 +100,9 @@ public:
 	bool m_LButton, m_PrevButton;
 	Tank** m_Tank;
 	std::clock_t last;
-	Grid gridP1, gridP2;
+	SmallGrid grid;
+	LargeGrid aimP1, aimP2;
 	float costable[720], sintable[720];
-	bool gridOccupied[GRID_WIDTH][GRID_HEIGHT];
 	std::vector<std::pair<int, int>> nonEmptyCells;
 	bool nearMountainPeak[16][GRID_WIDTH][GRID_HEIGHT];
 };

@@ -262,8 +262,8 @@ void Game::DrawTanks()
 			for (int k : cell)
 			{
 				Tank* t = m_Tank[k];
-				vec2 tpos(game->tankPosX[t->index], game->tankPosY[t->index]);
-				vec2 tspeed(game->tankVelX[t->index], game->tankVelY[t->index]);
+				vec2 tpos(game->tankPosX[k], game->tankPosY[k]);
+				vec2 tspeed(game->tankVelX[k], game->tankVelY[k]);
 
 				float x = tpos.x, y = tpos.y;
 				vec2 p1(x + 70 * tspeed.x + 22 * tspeed.y, y + 70 * tspeed.y - 22 * tspeed.x);
@@ -292,8 +292,8 @@ void Game::DrawTanks()
 			for (int k : cell)
 			{
 				Tank* t = m_Tank[k];
-				vec2 tpos(game->tankPosX[t->index], game->tankPosY[t->index]);
-				vec2 tspeed(game->tankVelX[t->index], game->tankVelY[t->index]);
+				vec2 tpos(game->tankPosX[k], game->tankPosY[k]);
+				vec2 tspeed(game->tankVelX[k], game->tankVelY[k]);
 
 				float x = tpos.x, y = tpos.y;
 				vec2 p1(x + 70 * tspeed.x + 22 * tspeed.y, y + 70 * tspeed.y - 22 * tspeed.x);
@@ -440,15 +440,15 @@ void Game::EvadeMountainPeaks()
 			for (int k : cell)
 			{
 				Tank* current = m_Tank[k];
-				vec2 tpos(game->tankPosX[current->index], game->tankPosY[current->index]);
+				vec2 tpos(game->tankPosX[k], game->tankPosY[k]);
 
 				vec2 d(tpos.x - peakx[i], tpos.y - peaky[i]);
 				float sd = (d.x * d.x + d.y * d.y);// *0.2f;
 				if (sd < 7500)//1500)*5
 				{
 					d *= 0.15f * (peakh[i] / sd);//force += d * 0.03f * (peakh[i] / sd);
-					game->tankForX[current->index] += d.x;
-					game->tankForY[current->index] += d.y;
+					game->tankForX[k] += d.x;
+					game->tankForY[k] += d.y;
 
 					float r = sqrtf(sd*0.2);
 					for (int j = 0; j < 720; j++)
@@ -567,15 +567,14 @@ vec2 SmallGrid::TankForces(Tank* tank)
 				game->tankForY[cell[ind + 3]] -= y4.m128_f32[3];
 			}
 
-			// the remainder
-			for (int kk = 0; kk < cell.size(); kk++)
+			// the remainder of cell.size() % 4
+			for (int kk = (cell.size() / 4) * 4; kk < cell.size(); kk++)
 			{
 				int k = cell[kk];
 				if (k <= tank->index) // we don't want our tank or those already processed
 					continue;
 
-				Tank* current = game->m_Tank[k];
-				vec2 tpos(game->tankPosX[current->index], game->tankPosY[current->index]);
+				vec2 tpos(game->tankPosX[k], game->tankPosY[k]);
 
 				vec2 d = pos - tpos; // distance
 				float length2 = d.x * d.x + d.y * d.y; // squared length
@@ -584,8 +583,8 @@ vec2 SmallGrid::TankForces(Tank* tank)
 					float mul = length2 < 64 ? 2.0f : 0.4f;	// force factor based on distance
 					d *= (mul / sqrtf(length2));
 					result += d; // apply force to tank
-					game->tankForX[current->index] -= d.x; // apply symmetric force to other tank
-					game->tankForY[current->index] -= d.y;
+					game->tankForX[k] -= d.x; // apply symmetric force to other tank
+					game->tankForY[k] -= d.y;
 				}
 			}
 		}
@@ -603,7 +602,7 @@ Tank* SmallGrid::BulletCollision(vec2 pos, int team)
 	for (int k : cell) // check own cell first
 	{
 		Tank* tank = game->m_Tank[k];
-		vec2 tpos(game->tankPosX[tank->index], game->tankPosY[tank->index]);
+		vec2 tpos(game->tankPosX[k], game->tankPosY[k]);
 
 		if (tank->flags & Tank::ACTIVE &&
 			tank->flags & team &&
@@ -633,7 +632,7 @@ Tank* SmallGrid::BulletCollision(vec2 pos, int team)
 			for (int k : cell)
 			{
 				Tank* tank = game->m_Tank[k];
-				vec2 tpos(game->tankPosX[tank->index], game->tankPosY[tank->index]);
+				vec2 tpos(game->tankPosX[k], game->tankPosY[k]);
 
 				if (tank->flags & Tank::ACTIVE &&
 					tank->flags & team &&
@@ -686,7 +685,7 @@ Tank* LargeGrid::FindTarget(Tank* source)
 
 				if (tank->flags & Tank::ACTIVE) // only active tanks
 				{
-					vec2 tpos(game->tankPosX[tank->index], game->tankPosY[tank->index]);
+					vec2 tpos(game->tankPosX[k], game->tankPosY[k]);
 
 					vec2 diff = tpos - pos;
 					float dist2 = dot(diff, diff);

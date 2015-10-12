@@ -32,7 +32,7 @@ class Tank
 public:
 	enum { ACTIVE = 1, P1 = 2, P2 = 4 };
 	Tank() : /*pos(vec2(0, 0)), speed(vec2(0, 0)), target(vec2(0, 0)),*/ reloading(0) {};
-	~Tank();
+	~Tank() {}
 	void Fire(unsigned int party, vec2& pos, vec2& dir);
 	void Tick();
 	//vec2 pos, speed, target, force;
@@ -52,14 +52,35 @@ public:
 	int flags;
 };
 
+class Cell
+{
+public:
+	std::vector<int> indices;
+	std::vector<float> posX;
+	std::vector<float> posY;
+	std::vector<float> forX;
+	std::vector<float> forY;
+
+	Cell() : indices(), posX(), posY(), forX(), forY() {}
+
+	void clear()
+	{
+		indices.clear();
+		posX.clear();
+		posY.clear();
+		forX.clear();
+		forY.clear();
+	}
+};
+
 class SmallGrid
 {
 public:
-	std::vector<int> cells[GRID_WIDTH][GRID_HEIGHT];
+	Cell cells[GRID_WIDTH][GRID_HEIGHT];
 	
 	SmallGrid();
 	std::pair<int, int> GetIndices(vec2 pos) const;
-	vec2 TankForces(Tank* tank);
+	vec2 TankForces(Tank& tank);
 	Tank* BulletCollision(vec2 pos, int team);
 };
 
@@ -70,7 +91,7 @@ public:
 
 	LargeGrid();
 	std::pair<int, int> GetIndices(vec2 pos) const;
-	Tank* FindTarget(Tank* source);
+	Tank* FindTarget(Tank& source);
 };
 
 class Surface;
@@ -97,7 +118,7 @@ public:
 	int m_ActiveP1, m_ActiveP2;
 	int m_MouseX, m_MouseY, m_DStartX, m_DStartY, m_DFrames;
 	bool m_LButton, m_PrevButton;
-	Tank** m_Tank;
+	Tank* m_Tank;
 	std::clock_t last;
 	SmallGrid grid;
 	LargeGrid aimP1, aimP2;

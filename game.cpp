@@ -505,12 +505,72 @@ vec2 SmallGrid::TankForces(Tank* tank)
 
 	std::pair<int, int> ind = tank->cellPos;
 	int x = ind.first, y = ind.second; // our tank's cell
+	__m128 resX = _mm_setzero_ps();
+	__m128 resY = _mm_setzero_ps();
 	for (int j = MAX(0, y - 1); j <= MIN(GRID_HEIGHT - 1, y + 1); j++) // look in neighbouring cells as well
 		for (int i = MAX(0, x - 1); i <= MIN(GRID_WIDTH - 1, x + 1); i++)
 		{
 			std::vector<int>& cell = cells[i][j];
-			for (int k : cell) // loop over all tanks in cell
+			for (int k = 0; k < cell.size() / 4; k++) // loop over all tanks in cell
 			{
+				int ind = k * 4;
+				__m128 x4 = _mm_set_ps1(game->tankPosX[tank->index]);
+				__m128 y4 = _mm_set_ps1(game->tankPosY[tank->index]);
+
+				x4 = _mm_sub_ps(x4, _mm_set_ps(game->tankPosX[cell[ind]],
+												game->tankPosX[cell[ind + 1]],
+												game->tankPosX[cell[ind + 2]],
+												game->tankPosX[cell[ind + 3]])
+					);
+
+				y4 = _mm_sub_ps(y4, _mm_set_ps(game->tankPosY[cell[ind]],
+												game->tankPosY[cell[ind + 1]],
+												game->tankPosY[cell[ind + 2]],
+												game->tankPosY[cell[ind + 3]])
+					);
+
+				__m128 len2 = _mm_add_ps(
+								_mm_mul_ps(x4, x4),
+								_mm_mul_ps(y4, y4)
+							);
+
+				__m128 mask = _mm_cmplt_ps(len2, _mm_set_ps1(256.0f));
+				__m128 mul = _mm_blendv_ps(_mm_set_ps1(0.4f), _mm_set_ps1(2.0f),
+								_mm_cmplt_ps(len2, _mm_set_ps1(64.0f))
+							);
+
+				mul = _mm_and_ps(mul, mask);
+				mul = _mm_mul_ps(mul, _mm_rsqrt_ps(len2));
+				x4 = _mm_mul_ps(x4, mul);
+				y4 = _mm_mul_ps(y4, mul);
+
+				__m128i mask2 = _mm_cmplt_epi32(
+									_mm_set_epi32(tank->index, tank->index, tank->index, tank->index),
+									_mm_set_epi32(cell[ind], cell[ind + 1], cell[ind + 2], cell[ind + 3])
+								);
+
+				mask = *((__m128*)&mask2);
+				x4 = _mm_and_ps(mask, x4);
+				y4 = _mm_and_ps(mask, y4);
+
+				resX = _mm_add_ps(resX, x4);
+				resY = _mm_add_ps(resY, y4);
+
+				game->tankForX[cell[ind]]	  -= x4.m128_f32[0];
+				game->tankForX[cell[ind + 1]] -= x4.m128_f32[1];
+				game->tankForX[cell[ind + 2]] -= x4.m128_f32[2];
+				game->tankForX[cell[ind + 3]] -= x4.m128_f32[3];
+
+				game->tankForY[cell[ind]]	  -= y4.m128_f32[0];
+				game->tankForY[cell[ind + 1]] -= y4.m128_f32[1];
+				game->tankForY[cell[ind + 2]] -= y4.m128_f32[2];
+				game->tankForY[cell[ind + 3]] -= y4.m128_f32[3];
+			}
+
+			// the remainder
+			for (int kk = 0; kk < cell.size(); kk++)
+			{
+				int k = cell[kk];
 				if (k <= tank->index) // we don't want our tank or those already processed
 					continue;
 
@@ -529,6 +589,9 @@ vec2 SmallGrid::TankForces(Tank* tank)
 				}
 			}
 		}
+
+	result.x += resX.m128_f32[0] + resX.m128_f32[1] + resX.m128_f32[2] + resX.m128_f32[3];
+	result.y += resY.m128_f32[0] + resY.m128_f32[1] + resY.m128_f32[2] + resY.m128_f32[3];
 
 	return result;
 }

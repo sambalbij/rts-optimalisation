@@ -665,7 +665,7 @@ Tank* LargeGrid::FindTarget(Tank* source)
 {
 	const float r2 = 100 * 100;
 	std::pair<int, int> indices = source->cellPos;
-	vec2 dir(game->tankTarX[source->index], game->tankTarY[source->index]);
+	vec2 dir(game->tankVelX[source->index], game->tankVelY[source->index]);
 	vec2 pos(game->tankPosX[source->index], game->tankPosY[source->index]);
 	int x = indices.first >> 3;
 	int y = indices.second >> 3;

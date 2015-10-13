@@ -355,7 +355,8 @@ void Game::Tick( float a_DT )
 	m_LButton = (GetAsyncKeyState( VK_LBUTTON ) != 0), m_MouseX = p.x, m_MouseY = p.y;
 	m_Backdrop->CopyTo( m_Surface, 0, 0 );
 
-	for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
+#pragma omp parallel for schedule(dynamic, 1000) num_threads(16)
+	for ( int i = 0; i < (MAXP1 + MAXP2); i++ )
 		m_Tank[i]->Tick();
 
 	UpdateGrid();

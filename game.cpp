@@ -463,27 +463,6 @@ void Game::EvadeMountainPeaks()
 
 		} // end loop over nearby gridcells
 	} // end loop over peaks
-	/*vec2 force;
-	for (unsigned int i = 0; i < 16; i++)
-	{
-		std::pair<int, int> ind = t->cellPos;
-		if (!nearMountainPeak[i][ind.first][ind.second])
-			continue;
-		vec2 d(t->pos.x - peakx[i], t->pos.y - peaky[i]);
-		float sd = (d.x * d.x + d.y * d.y);// *0.2f;
-		if (sd < 7500)//1500)*5
-		{
-			force += d*0.15f*(peakh[i] / sd);//force += d * 0.03f * (peakh[i] / sd);
-			float r = sqrtf(sd*0.2);
-			for (int j = 0; j < 720; j++)
-			{
-				float x = peakx[i] + r * sintable[j];
-				float y = peaky[i] + r * costable[j];
-				game->m_Surface->AddPlot((int)x, (int)y, 0x000500);
-			}
-		}
-	}
-	return force;*/
 }
 
 SmallGrid::SmallGrid()

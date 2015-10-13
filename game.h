@@ -12,8 +12,7 @@ namespace Tmpl8 {
 #define GRID_WIDTH				128			// the number of cells
 #define GRID_HEIGHT				((MAXP1 / 4) + 100)
 #define GRID_CELL_SIZE_SMALL	16			// the size of each cell, in pixels
-#define GRID_CELL_SIZE_LARGE	128	
-#define MAX_CELL_COUNT			64
+#define GRID_CELL_SIZE_LARGE	128
 
 class Grid;
 class Smoke

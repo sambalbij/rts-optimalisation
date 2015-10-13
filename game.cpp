@@ -502,6 +502,8 @@ vec2 SmallGrid::TankForces(Tank* tank)
 {
 	vec2 result;
 	vec2 pos(game->tankPosX[tank->index], game->tankPosY[tank->index]);
+	__m128 tx4 = _mm_set_ps1(game->tankPosX[tank->index]);
+	__m128 ty4 = _mm_set_ps1(game->tankPosY[tank->index]);
 
 	std::pair<int, int> ind = tank->cellPos;
 	int x = ind.first, y = ind.second; // our tank's cell
@@ -514,20 +516,18 @@ vec2 SmallGrid::TankForces(Tank* tank)
 			for (int k = 0; k < cell.size() / 4; k++) // loop over all tanks in cell
 			{
 				int ind = k * 4;
-				__m128 x4 = _mm_set_ps1(game->tankPosX[tank->index]);
-				__m128 y4 = _mm_set_ps1(game->tankPosY[tank->index]);
 
-				x4 = _mm_sub_ps(x4, _mm_set_ps(game->tankPosX[cell[ind]],
-												game->tankPosX[cell[ind + 1]],
-												game->tankPosX[cell[ind + 2]],
-												game->tankPosX[cell[ind + 3]])
-					);
+				__m128 x4 = _mm_sub_ps(tx4, _mm_set_ps(game->tankPosX[cell[ind]],
+														game->tankPosX[cell[ind + 1]],
+														game->tankPosX[cell[ind + 2]],
+														game->tankPosX[cell[ind + 3]])
+							);
 
-				y4 = _mm_sub_ps(y4, _mm_set_ps(game->tankPosY[cell[ind]],
-												game->tankPosY[cell[ind + 1]],
-												game->tankPosY[cell[ind + 2]],
-												game->tankPosY[cell[ind + 3]])
-					);
+				__m128 y4 = _mm_sub_ps(ty4, _mm_set_ps(game->tankPosY[cell[ind]],
+														game->tankPosY[cell[ind + 1]],
+														game->tankPosY[cell[ind + 2]],
+														game->tankPosY[cell[ind + 3]])
+							);
 
 				__m128 len2 = _mm_add_ps(
 								_mm_mul_ps(x4, x4),

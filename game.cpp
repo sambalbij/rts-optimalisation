@@ -355,7 +355,8 @@ void Game::Tick( float a_DT )
 	m_LButton = (GetAsyncKeyState( VK_LBUTTON ) != 0), m_MouseX = p.x, m_MouseY = p.y;
 	m_Backdrop->CopyTo( m_Surface, 0, 0 );
 
-	for ( unsigned int i = 0; i < (MAXP1 + MAXP2); i++ )
+#pragma omp parallel for schedule(dynamic, 1000) num_threads(16)
+	for ( int i = 0; i < (MAXP1 + MAXP2); i++ )
 		m_Tank[i]->Tick();
 
 	UpdateGrid();
@@ -502,6 +503,8 @@ vec2 SmallGrid::TankForces(Tank* tank)
 {
 	vec2 result;
 	vec2 pos(game->tankPosX[tank->index], game->tankPosY[tank->index]);
+	__m128 tx4 = _mm_set_ps1(game->tankPosX[tank->index]);
+	__m128 ty4 = _mm_set_ps1(game->tankPosY[tank->index]);
 
 	std::pair<int, int> ind = tank->cellPos;
 	int x = ind.first, y = ind.second; // our tank's cell
@@ -514,20 +517,18 @@ vec2 SmallGrid::TankForces(Tank* tank)
 			for (int k = 0; k < cell.size() / 4; k++) // loop over all tanks in cell
 			{
 				int ind = k * 4;
-				__m128 x4 = _mm_set_ps1(game->tankPosX[tank->index]);
-				__m128 y4 = _mm_set_ps1(game->tankPosY[tank->index]);
 
-				x4 = _mm_sub_ps(x4, _mm_set_ps(game->tankPosX[cell[ind]],
-												game->tankPosX[cell[ind + 1]],
-												game->tankPosX[cell[ind + 2]],
-												game->tankPosX[cell[ind + 3]])
-					);
+				__m128 x4 = _mm_sub_ps(tx4, _mm_set_ps(game->tankPosX[cell[ind]],
+														game->tankPosX[cell[ind + 1]],
+														game->tankPosX[cell[ind + 2]],
+														game->tankPosX[cell[ind + 3]])
+							);
 
-				y4 = _mm_sub_ps(y4, _mm_set_ps(game->tankPosY[cell[ind]],
-												game->tankPosY[cell[ind + 1]],
-												game->tankPosY[cell[ind + 2]],
-												game->tankPosY[cell[ind + 3]])
-					);
+				__m128 y4 = _mm_sub_ps(ty4, _mm_set_ps(game->tankPosY[cell[ind]],
+														game->tankPosY[cell[ind + 1]],
+														game->tankPosY[cell[ind + 2]],
+														game->tankPosY[cell[ind + 3]])
+							);
 
 				__m128 len2 = _mm_add_ps(
 								_mm_mul_ps(x4, x4),
@@ -664,7 +665,7 @@ Tank* LargeGrid::FindTarget(Tank* source)
 {
 	const float r2 = 100 * 100;
 	std::pair<int, int> indices = source->cellPos;
-	vec2 dir(game->tankTarX[source->index], game->tankTarY[source->index]);
+	vec2 dir(game->tankVelX[source->index], game->tankVelY[source->index]);
 	vec2 pos(game->tankPosX[source->index], game->tankPosY[source->index]);
 	int x = indices.first >> 3;
 	int y = indices.second >> 3;
